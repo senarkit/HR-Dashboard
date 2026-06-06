@@ -419,7 +419,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
 
         <Panel>
           <PanelTitle title="Pipeline Leakage Points" />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1rem', gridAutoRows: 'minmax(140px, auto)' }}>
             <LeakCard type="drop" num={leakage.candidateDrops} label="Candidate Drops" sub={kpis.totalApplicants > 0 ? pct(leakage.candidateDrops / kpis.totalApplicants * 100) + ' of pipeline' : ''} />
             <LeakCard type="reject" num={leakage.r1Rejects} label="R1 Rejects" sub="Post-interview rejection" />
             <LeakCard type="noshow" num={leakage.noShows} label="No-Shows" sub={kpis.totalApplicants > 0 ? pct(leakage.noShows / kpis.totalApplicants * 100) + ' attrition' : ''} />
@@ -579,11 +579,11 @@ function LeakCard({ type, num: n, label, sub }: { type: string; num: number; lab
   }
   const c = colorMap[type] || colorMap.drop
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '1rem', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, width: 3, height: '100%', background: c.border }} />
-      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.7rem', fontWeight: 600, lineHeight: 1, marginBottom: '0.2rem', color: c.numColor }}>{n.toLocaleString()}</div>
-      <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', fontWeight: 500 }}>{label}</div>
-      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{sub}</div>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 14, padding: '1.25rem 1.25rem 1.1rem', position: 'relative', overflow: 'hidden', background: 'rgba(255,255,255,0.96)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 140 }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: c.border }} />
+      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.85rem', fontWeight: 600, lineHeight: 1, marginBottom: '0.35rem', color: c.numColor }}>{n.toLocaleString()}</div>
+      <div style={{ fontSize: '0.78rem', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.35rem' }}>{label}</div>
+      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>{sub}</div>
     </div>
   )
 }

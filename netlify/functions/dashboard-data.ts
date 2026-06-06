@@ -55,6 +55,10 @@ const IS_NO_SHOW = [/no.?show/i, /absent/i]
 const IS_DROPPED = [/\bdrop\b/i, /candidate.*drop/i, /not interest/i, /withdrawn/i, /declined/i]
 const IS_SCREEN_REJECT = [/screen.*reject/i, /profile reject/i, /not shortlist/i, /rejected/i]
 
+const VACANCY_FILLED = [/fill(ed)?/i, /close(d)?/i, /hired?/i, /placed?/i, /joined?/i, /onboard(ed|ing)?/i, /accepted/i, /offer.*accepted/i, /position.*filled/i]
+const VACANCY_ON_HOLD = [/hold/i, /pause(d)?/i, /defer(red)?/i, /suspend(ed)?/i, /frozen/i, /postponed/i]
+const VACANCY_IN_PROCESS = [/process/i, /progress/i, /open/i, /active/i, /ongoing/i, /live/i, /available/i, /recruiting/i, /in progress/i]
+
 function getQuarter(dateStr: string, quarter: string): string {
   if (quarter) {
     const q = quarter.trim().toUpperCase()
@@ -303,16 +307,20 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
     if (!vacBUMap[bu]) vacBUMap[bu] = { total: 0, filled: 0, onHold: 0, inProcess: 0 }
     vacBUMap[bu].total++
 
-    if (/fill|close|hired|placed|join/i.test(status)) {
+    if (matchStatus(status, VACANCY_FILLED)) {
       filledVacancies++; vacBUMap[bu].filled++
-    } else if (/hold|pause|defer|suspend/i.test(status)) {
+    } else if (matchStatus(status, VACANCY_ON_HOLD)) {
       onHoldVacancies++; vacBUMap[bu].onHold++
-    } else if (/process|progress|open|active|ongoing/i.test(status)) {
+    } else if (matchStatus(status, VACANCY_IN_PROCESS) || !status) {
+      inProcessVacancies++; vacBUMap[bu].inProcess++
+    } else {
       inProcessVacancies++; vacBUMap[bu].inProcess++
     }
   }
 
-  const fillRate = totalVacancies > 0 ? (filledVacancies / totalVacancies) * 100 : 0
+  const vacancyFillRate = totalVacancies > 0 ? (filledVacancies / totalVacancies) * 100 : 0
+  const joinFallbackRate = totalVacancies > 0 ? (joined / totalVacancies) * 100 : 0
+  const fillRate = vacancyFillRate > 0 ? vacancyFillRate : joinFallbackRate
 
   const vacancyByBU = Object.entries(vacBUMap)
     .filter(([bu]) => bu !== 'Unknown')
