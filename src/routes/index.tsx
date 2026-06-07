@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -89,6 +89,180 @@ function PanelTitle({ title, badge }: { title: string; badge?: string }) {
           background: 'var(--warm-50)', padding: '2px 10px', borderRadius: 20, border: '1px solid var(--border)'
         }}>{badge}</span>
       )}
+    </div>
+  )
+}
+
+// Auth
+const AUTH_KEY = 'hrd_authed'
+const VALID_USER = 'jiwan-durga'
+const VALID_PASS = 'jiwanpass321'
+
+function LoginScreen({ onAuth }: { onAuth: () => void }) {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [shake, setShake] = useState(false)
+  const [showPass, setShowPass] = useState(false)
+  const userRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { userRef.current?.focus() }, [])
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (username.trim() === VALID_USER && password === VALID_PASS) {
+      sessionStorage.setItem(AUTH_KEY, '1')
+      onAuth()
+    } else {
+      setError('Invalid credentials. Please try again.')
+      setShake(true)
+      setTimeout(() => setShake(false), 600)
+      setPassword('')
+    }
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'linear-gradient(135deg, #1C1410 0%, #2A1F16 50%, #1A2028 100%)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+    }}>
+      <div style={{
+        position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)',
+        width: 600, height: 300, borderRadius: '50%',
+        background: 'radial-gradient(ellipse, rgba(196,158,85,0.08) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      }} />
+      <div style={{ position: 'relative', width: '100%', maxWidth: 420, animation: shake ? 'shake 0.5s ease' : undefined }}>
+        <style>{`
+          @keyframes shake {
+            0%,100% { transform: translateX(0); }
+            15% { transform: translateX(-10px); }
+            30% { transform: translateX(10px); }
+            45% { transform: translateX(-8px); }
+            60% { transform: translateX(8px); }
+            75% { transform: translateX(-4px); }
+            90% { transform: translateX(4px); }
+          }
+          @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+          }
+          .login-card { animation: fadeInUp 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+          .login-input:focus { border-color: #C49E55 !important; box-shadow: 0 0 0 3px rgba(196,158,85,0.15) !important; outline: none; }
+          .login-btn:hover { background: #d4ae65 !important; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(196,158,85,0.35) !important; }
+          .login-btn:active { transform: translateY(0) !important; }
+          .show-pass-btn:hover { color: #C49E55 !important; }
+        `}</style>
+        <div className="login-card" style={{
+          background: 'rgba(36,26,20,0.92)',
+          border: '1px solid rgba(196,158,85,0.25)',
+          borderRadius: 16, padding: '2.75rem 2.5rem',
+          backdropFilter: 'blur(20px)',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(196,158,85,0.15)',
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 52, height: 52, borderRadius: 14,
+              background: 'linear-gradient(135deg, rgba(196,158,85,0.2), rgba(196,158,85,0.05))',
+              border: '1px solid rgba(196,158,85,0.3)',
+              marginBottom: '1.25rem', fontSize: '1.5rem',
+            }}>📊</div>
+            <div style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: '1.45rem', fontWeight: 600, color: '#FFFFFF',
+              letterSpacing: '-0.02em', lineHeight: 1.2, marginBottom: '0.4rem',
+            }}>Recruitment Dashboard</div>
+            <div style={{ fontSize: '0.78rem', color: 'rgba(180,165,145,0.7)', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 500 }}>
+              FY 2025 – 26 · Talent Acquisition
+            </div>
+          </div>
+          <div style={{ height: 1, background: 'rgba(196,158,85,0.15)', marginBottom: '1.75rem' }} />
+          <form onSubmit={handleSubmit}>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'rgba(180,165,145,0.8)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.45rem' }}>Username</label>
+              <input
+                ref={userRef}
+                className="login-input"
+                type="text"
+                value={username}
+                onChange={e => { setUsername(e.target.value); setError('') }}
+                placeholder="Enter your username"
+                autoComplete="username"
+                style={{
+                  width: '100%', padding: '0.75rem 1rem',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(196,158,85,0.2)',
+                  borderRadius: 8, fontSize: '0.88rem', color: '#F5EFE6',
+                  fontFamily: "'DM Sans', sans-serif",
+                  transition: 'border-color 0.2s, box-shadow 0.2s',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'rgba(180,165,145,0.8)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.45rem' }}>Password</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  className="login-input"
+                  type={showPass ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => { setPassword(e.target.value); setError('') }}
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  style={{
+                    width: '100%', padding: '0.75rem 2.75rem 0.75rem 1rem',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(196,158,85,0.2)',
+                    borderRadius: 8, fontSize: '0.88rem', color: '#F5EFE6',
+                    fontFamily: "'DM Sans', sans-serif",
+                    transition: 'border-color 0.2s, box-shadow 0.2s',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                <button
+                  type="button"
+                  className="show-pass-btn"
+                  onClick={() => setShowPass(p => !p)}
+                  style={{
+                    position: 'absolute', right: '0.85rem', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'rgba(180,165,145,0.5)', fontSize: '0.75rem', padding: 0,
+                    transition: 'color 0.2s', fontFamily: "'DM Sans', sans-serif",
+                  }}
+                >{showPass ? 'hide' : 'show'}</button>
+              </div>
+            </div>
+            {error && (
+              <div style={{
+                marginBottom: '1.25rem', padding: '0.7rem 1rem',
+                background: 'rgba(160,42,30,0.18)', border: '1px solid rgba(160,42,30,0.35)',
+                borderRadius: 8, fontSize: '0.8rem', color: '#E8998F',
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+              }}><span>⚠</span> {error}</div>
+            )}
+            <button
+              type="submit"
+              className="login-btn"
+              style={{
+                width: '100%', padding: '0.85rem',
+                background: '#C49E55',
+                border: 'none', borderRadius: 8,
+                fontSize: '0.88rem', fontWeight: 700,
+                color: '#1C1410', cursor: 'pointer',
+                fontFamily: "'DM Sans', sans-serif",
+                letterSpacing: '0.06em', textTransform: 'uppercase',
+                transition: 'background 0.2s, transform 0.15s, box-shadow 0.2s',
+                boxShadow: '0 4px 14px rgba(196,158,85,0.25)',
+              }}
+            >Sign In →</button>
+          </form>
+          <div style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.7rem', color: 'rgba(180,165,145,0.35)', letterSpacing: '0.05em' }}>
+            Confidential · Internal Access Only
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -598,6 +772,7 @@ function VacStat({ num: n, label, color }: { num: number; label: string; color: 
 }
 
 function Dashboard() {
+  const [authed, setAuthed] = useState(() => sessionStorage.getItem(AUTH_KEY) === '1')
   const [showConfig, setShowConfig] = useState(true)
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -641,6 +816,20 @@ function Dashboard() {
     return () => clearInterval(id)
   }, [lastUrls, fetchData])
 
+  const handleSignOut = () => {
+    sessionStorage.removeItem(AUTH_KEY)
+    setAuthed(false)
+    setData(null)
+    setShowConfig(true)
+    setLastUrls(null)
+    setLastUpdated('')
+    setError(null)
+  }
+
+  if (!authed) {
+    return <LoginScreen onAuth={() => setAuthed(true)} />
+  }
+
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", background: 'var(--bg)', color: 'var(--text-primary)', minHeight: '100vh' }}>
       {showConfig && <ConfigDialog onConfirm={handleConfirm} />}
@@ -655,7 +844,7 @@ function Dashboard() {
           <div style={{ background: 'var(--gold)', color: 'var(--slate-800)', padding: '0.5rem 1.25rem', borderRadius: 2, fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             Boardroom Ready · Q1–Q4
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             {lastUpdated && <span style={{ fontSize: '0.72rem', color: 'var(--slate-400)' }}>Updated {lastUpdated}</span>}
             {!showConfig && (
               <button
@@ -669,6 +858,17 @@ function Dashboard() {
                 style={{ fontSize: '0.72rem', color: 'var(--gold)', background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
               >↻ Refresh</button>
             )}
+            <button
+              onClick={handleSignOut}
+              style={{
+                fontSize: '0.72rem', color: 'rgba(180,165,145,0.6)',
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 4, cursor: 'pointer', padding: '3px 10px',
+                fontFamily: "'DM Sans', sans-serif", transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => { const b = e.target as HTMLButtonElement; b.style.color='#E8998F'; b.style.borderColor='rgba(160,42,30,0.4)' }}
+              onMouseLeave={e => { const b = e.target as HTMLButtonElement; b.style.color='rgba(180,165,145,0.6)'; b.style.borderColor='rgba(255,255,255,0.1)' }}
+            >Sign out</button>
           </div>
         </div>
       </div>
