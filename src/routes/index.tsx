@@ -595,7 +595,7 @@ function PerformanceTab({ data }: { data: DashboardData }) {
                   <span style={{ fontSize: '0.7rem', color: 'white', fontWeight: 600 }}>{num(bu.total)}</span>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '1rem', flexShrink: 0, width: 120, justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: '1rem', flexShrink: 0, width: 170, justifyContent: 'flex-end' }}>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>{num(bu.joined)}</div>
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Joined</div>
@@ -603,6 +603,19 @@ function PerformanceTab({ data }: { data: DashboardData }) {
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '0.78rem', fontWeight: 600, color: rateColor(bu.rate) }}>{pct(bu.rate)}</div>
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Rate</div>
+                </div>
+                <div style={{ textAlign: 'center', width: 40 }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 600, color: (() => {
+                    const ttf = data.timeToFillByBU?.find(t => t.bu === bu.bu)?.avgDays;
+                    if (!ttf) return 'var(--text-muted)';
+                    return ttf <= 30 ? 'var(--teal-500)' : ttf <= 60 ? 'var(--amber-600)' : 'var(--brick-500)';
+                  })() }}>
+                    {(() => {
+                      const ttf = data.timeToFillByBU?.find(t => t.bu === bu.bu)?.avgDays;
+                      return ttf ? `${ttf}d` : '-';
+                    })()}
+                  </div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Time</div>
                 </div>
               </div>
             </div>
@@ -773,17 +786,33 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
           )}
         </Panel>
       </div>
-      <div style={{ marginTop: '1.5rem' }}>
+      <div style={{ marginTop: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
         <Panel>
           <PanelTitle title="Top Rejection Reasons" badge="From 'Reason for Rejection' column" />
           {data.topRejectionReasons.length === 0 ? (
             <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>No rejection reasons detected</div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-              {data.topRejectionReasons.map(r => (
-                <div key={r.reason} className="kpi-card-hover" style={{ background: 'var(--warm-50)', padding: '1rem', borderRadius: 10, border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: '1.25rem', fontFamily: "'Playfair Display', serif", fontWeight: 700, color: 'var(--brick-500)', marginBottom: '0.2rem' }}>{num(r.count)}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{r.reason}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {data.topRejectionReasons.slice(0, 5).map(r => (
+                <div key={r.reason} className="data-row" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '1.1rem', fontFamily: "'Playfair Display', serif", fontWeight: 700, color: 'var(--brick-500)', width: 30, textAlign: 'center' }}>{num(r.count)}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4, flex: 1 }}>{r.reason}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Panel>
+
+        <Panel>
+          <PanelTitle title="Top Offer Decline Reasons" badge="Candidates who dropped offers" />
+          {!data.topOfferDropReasons || data.topOfferDropReasons.length === 0 ? (
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>No offer decline reasons detected</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {data.topOfferDropReasons.map(r => (
+                <div key={r.reason} className="data-row" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '1.1rem', fontFamily: "'Playfair Display', serif", fontWeight: 700, color: 'var(--amber-600)', width: 30, textAlign: 'center' }}>{num(r.count)}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4, flex: 1 }}>{r.reason}</div>
                 </div>
               ))}
             </div>
@@ -859,12 +888,14 @@ function GlossaryTab() {
       <SectionLabel>Metric Definitions &amp; Derivations</SectionLabel>
       <Panel>
         <PanelTitle title="Dashboard Glossary" />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1rem' }}>
           {glossaryItems.map(item => (
-            <div key={item.name} style={{ background: 'var(--warm-50)', padding: '1.25rem', borderRadius: 12, border: '1px solid var(--border)' }}>
-              <div style={{ fontSize: '1.1rem', fontFamily: "'Playfair Display', serif", fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>{item.name}</div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', lineHeight: 1.5 }}><strong>Definition:</strong> {item.def}</div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--teal-600)', fontWeight: 500 }}><strong>Derivation:</strong> {item.calc}</div>
+            <div key={item.name} className="kpi-card-hover" style={{ background: 'white', padding: '1rem 1.2rem', borderRadius: 8, border: '1px solid var(--border)', borderLeft: '4px solid var(--navy-700)', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--navy-900)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{item.name}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.6rem', lineHeight: 1.45 }}>{item.def}</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--teal-600)', fontWeight: 500, padding: '0.3rem 0.5rem', background: '#F2F9F8', borderRadius: 4, display: 'inline-block' }}>
+                <span style={{ color: 'var(--teal-800)', opacity: 0.7, marginRight: '4px' }}>ƒx</span>{item.calc}
+              </div>
             </div>
           ))}
         </div>

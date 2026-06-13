@@ -167,6 +167,8 @@ interface DashboardData {
   recruiterPerformance: { recruiter: string; applications: number; offers: number; joined: number; convRate: number; offerDropRate: number }[]
   topPositions: { position: string; apps: number; joined: number }[]
   vacancyByBU: { bu: string; total: number; filled: number; onHold: number; inProcess: number }[]
+  topOfferDropReasons: { reason: string; count: number }[]
+  timeToFillByBU: { bu: string; avgDays: number }[]
   lastUpdated: string
 }
 
@@ -203,6 +205,8 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
   const posMap: Record<string, { apps: number; joined: number }> = {}
   const quarterMap: Record<string, { applicants: number; joined: number }> = {}
   const rejectReasonMap: Record<string, number> = {}
+  const offerDropReasonMap: Record<string, number> = {}
+  const timeToFillByBUMap: Record<string, number[]> = {}
 
   for (const row of apps) {
     const status = (row[statusKey] || '').trim()
@@ -252,10 +256,14 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
     // Interviewed = reached interview stage
     const isInterview = matchStatus(status, STATUS_PATTERNS.interview) || isOffer || isJoin || isOfferDrop || isR1 || isR2
 
-    if (isDrop || isR1 || isR2 || isScreenReject) {
+    if (isDrop || isR1 || isR2 || isScreenReject || isOfferDrop) {
       const reason = (row[reasonKey] || '').trim()
       if (reason && reason !== '-' && reason.toLowerCase() !== 'na' && reason.length > 2) {
-        rejectReasonMap[reason] = (rejectReasonMap[reason] || 0) + 1
+        if (isOfferDrop) {
+          offerDropReasonMap[reason] = (offerDropReasonMap[reason] || 0) + 1
+        } else {
+          rejectReasonMap[reason] = (rejectReasonMap[reason] || 0) + 1
+        }
       }
     }
 
@@ -274,7 +282,11 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
       if (appDate && joinDate && joinDate > appDate) {
         const diffMs = joinDate.getTime() - appDate.getTime()
         const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
-        if (diffDays > 0 && diffDays < 365) timeToFillDays.push(diffDays)
+        if (diffDays > 0 && diffDays < 365) {
+          timeToFillDays.push(diffDays)
+          if (!timeToFillByBUMap[bu]) timeToFillByBUMap[bu] = []
+          timeToFillByBUMap[bu].push(diffDays)
+        }
       }
     } else if (isOfferDrop) {
       offerDrops++; offered++; shortlisted++; interviewed++
@@ -399,10 +411,20 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
     .sort((a, b) => b.count - a.count)
     .slice(0, 10)
 
+  const topOfferDropReasons = Object.entries(offerDropReasonMap)
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5)
+
   const vacancyByBU = Object.entries(vacBUMap)
     .filter(([bu]) => bu !== 'Unknown')
     .map(([bu, d]) => ({ bu, ...d }))
     .sort((a, b) => b.total - a.total)
+
+  const timeToFillByBU = Object.entries(timeToFillByBUMap)
+    .filter(([bu]) => bu !== 'Unknown')
+    .map(([bu, days]) => ({ bu, avgDays: Math.round(days.reduce((a, b) => a + b, 0) / days.length) }))
+    .sort((a, b) => b.avgDays - a.avgDays)
 
   return {
     kpis: {
@@ -430,6 +452,8 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
     recruiterPerformance,
     topPositions,
     vacancyByBU,
+    topOfferDropReasons,
+    timeToFillByBU,
     lastUpdated: new Date().toISOString(),
   }
 }
