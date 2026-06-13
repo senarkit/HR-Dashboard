@@ -9,9 +9,20 @@ assets/
 .env
 .env.local
 
+# Data files — NEVER commit spreadsheets or data exports
+*.xlsx
+*.xls
+*.csv
+
 # AI/Agent folders (optional, but recommended to keep repo clean)
 .claude/
 .agents/
+
+# Netlify
+.netlify/
+
+# TanStack
+.tanstack/
 
 # OS files
 .DS_Store
