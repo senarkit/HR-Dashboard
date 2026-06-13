@@ -5,17 +5,13 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
-  PointElement,
-  LineElement,
-  ArcElement,
   Title,
   Tooltip,
   Legend,
-  Filler
 } from 'chart.js'
-import { Bar, Doughnut, Chart } from 'react-chartjs-2'
+import { Bar } from 'react-chartjs-2'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler)
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 export const Route = createFileRoute('/')({
   component: Dashboard,
@@ -687,179 +683,140 @@ function PerformanceTab({ data }: { data: DashboardData }) {
 // ═══════════════════════════════════════════════════════════════
 
 function AnalyticsTab({ data }: { data: DashboardData }) {
-  const { quarterlyTrend, recruiterPerformance, topOfferDropReasons } = data;
+  const { kpis, quarterlyTrend, recruiterPerformance } = data
 
-  // -- 1. HERO METRICS (Derived from quarterly trend) --
-  const totalApplicants = quarterlyTrend.reduce((acc, q) => acc + q.applicants, 0);
-  const totalJoined = quarterlyTrend.reduce((acc, q) => acc + q.joined, 0);
-  const overallConversion = totalApplicants > 0 ? ((totalJoined / totalApplicants) * 100).toFixed(1) : '0';
-
-  // -- 2. MIXED CHART: Volume vs. Conversion (Line + Bar) --
-  const mixedChartData = {
+  const chartData = {
     labels: quarterlyTrend.map(q => q.quarter),
     datasets: [
       {
-        type: 'line' as const,
-        label: 'Conversion Rate (%)',
-        data: quarterlyTrend.map(q => q.applicants > 0 ? (q.joined / q.applicants) * 100 : 0),
-        borderColor: 'var(--amber-500)',
-        backgroundColor: 'var(--amber-500)',
-        borderWidth: 2,
-        tension: 0.4,
-        yAxisID: 'y1',
-      },
-      {
-        type: 'bar' as const,
         label: 'Applicants',
         data: quarterlyTrend.map(q => q.applicants),
-        backgroundColor: 'rgba(15, 27, 45, 0.7)',
-        borderRadius: 4,
-        yAxisID: 'y',
+        backgroundColor: 'rgba(15, 27, 45, 0.6)',
+        borderRadius: 6,
+        borderSkipped: false as const,
       },
       {
-        type: 'bar' as const,
         label: 'Joined',
         data: quarterlyTrend.map(q => q.joined),
         backgroundColor: 'rgba(46, 128, 112, 0.85)',
-        borderRadius: 4,
-        yAxisID: 'y',
-      }
+        borderRadius: 6,
+        borderSkipped: false as const,
+      },
     ],
-  };
+  }
 
-  const mixedChartOptions = {
+  const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'top' as const, labels: { usePointStyle: true, boxWidth: 8, font: { family: 'Inter', size: 11 } } },
-      tooltip: { mode: 'index' as const, intersect: false },
+      legend: { display: false },
+      tooltip: { callbacks: { label: (ctx: { dataset: { label: string }; parsed: { y: number } }) => ` ${ctx.dataset.label}: ${ctx.parsed.y}` } },
     },
     scales: {
-      x: { grid: { display: false } },
-      y: { type: 'linear' as const, display: true, position: 'left' as const, grid: { color: 'rgba(0,0,0,0.05)' } },
-      y1: { type: 'linear' as const, display: true, position: 'right' as const, grid: { drawOnChartArea: false }, min: 0, max: 100, ticks: { callback: function(value: any) { return value + '%' } } },
+      x: { grid: { display: false }, ticks: { color: '#8E8E9E', font: { size: 12, family: 'Inter' } as const } },
+      y: { grid: { color: 'rgba(200,189,179,0.25)', lineWidth: 0.5 }, ticks: { color: '#8E8E9E', font: { size: 11, family: 'Inter' } as const }, border: { display: false } },
     },
-  };
-
-  // -- 3. DOUGHNUT CHART: Rejection Breakdown (Mocked Data based on typical drops) --
-  // We use topOfferDropReasons if available, else fallback to mock data
-  const dropLabels = topOfferDropReasons?.slice(0, 4).map(r => r.reason) || ['Salary', 'Location', 'Better Offer', 'Other'];
-  const dropData = topOfferDropReasons?.slice(0, 4).map(r => r.count) || [45, 25, 20, 10];
-
-  const doughnutData = {
-    labels: dropLabels,
-    datasets: [{
-      data: dropData,
-      backgroundColor: [
-        'var(--brick-400)',
-        'var(--amber-400)',
-        'var(--slate-400)',
-        'var(--teal-400)'
-      ],
-      borderWidth: 0,
-      hoverOffset: 4
-    }]
-  };
-
-  const doughnutOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    cutout: '70%',
-    plugins: {
-      legend: { position: 'right' as const, labels: { usePointStyle: true, boxWidth: 8, font: { family: 'Inter', size: 11 } } }
-    }
-  };
+  }
 
   return (
-    <div className="tab-content" style={{ animation: 'fadeInUp 0.5s ease-out' }}>
-
-      {/* Hero Metrics Row */}
-      <SectionLabel>Analytics Overview</SectionLabel>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem', marginBottom: '2rem' }}>
-        <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem' }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(15, 27, 45, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--navy-800)' }}>👥</div>
-          <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Pipeline</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>{totalApplicants.toLocaleString()}</div>
-          </div>
-        </div>
-        <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem' }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(46, 128, 112, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--teal-500)' }}>🎯</div>
-          <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Successful Hires</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>{totalJoined.toLocaleString()}</div>
-          </div>
-        </div>
-        <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', right: -20, top: -20, width: 100, height: 100, background: 'radial-gradient(circle, rgba(212,168,67,0.15) 0%, transparent 70%)' }} />
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(212, 168, 67, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--gold)' }}>⚡</div>
-          <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Avg Conversion</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>{overallConversion}%</div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+    <div className="tab-content">
+      <SectionLabel>Quarterly Performance &amp; Recruiter Analytics</SectionLabel>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
         <Panel>
-          <PanelTitle title="Volume vs. Conversion Trend" badge="Quarterly" />
-          <div style={{ position: 'relative', height: 300 }}>
-             <Chart type='bar' data={mixedChartData} options={mixedChartOptions} />
+          <PanelTitle title="Quarterly Applicant vs. Joining Trend" />
+          <div style={{ position: 'relative', height: 260 }}>
+            <Bar data={chartData} options={chartOptions} />
           </div>
-        </Panel>
-
-        <Panel>
-          <PanelTitle title="Rejection / Drop Breakdown" />
-          <div style={{ position: 'relative', height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Doughnut data={doughnutData} options={doughnutOptions} />
-            <div style={{ position: 'absolute', textAlign: 'center', pointerEvents: 'none' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>{dropData.reduce((a,b)=>a+b,0)}</div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Drops</div>
+          <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.75rem', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: 'rgba(15,27,45,0.6)', display: 'inline-block' }} /> Applicants
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: 'rgba(46,128,112,0.85)', display: 'inline-block' }} /> Joined
             </div>
           </div>
         </Panel>
-      </div>
 
-      <SectionLabel>Recruiter Intelligence</SectionLabel>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem' }}>
         <Panel>
-          <PanelTitle title="Recruiter Performance Leaderboard" />
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left', color: 'var(--text-muted)' }}>
-                  <th style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>Recruiter</th>
-                  <th style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>Applications</th>
-                  <th style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>Offers</th>
-                  <th style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>Joined</th>
-                  <th style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>Conversion</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recruiterPerformance.sort((a,b) => b.joined - a.joined).slice(0, 5).map((r, i) => {
-                  return (
-                    <tr key={r.recruiter} className="data-row" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
-                      <td style={{ padding: '0.75rem 1rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {i === 0 && <span style={{ color: 'var(--gold)' }}>👑</span>}
-                        {r.recruiter}
-                      </td>
-                      <td style={{ padding: '0.75rem 1rem' }}>{r.applications.toLocaleString()}</td>
-                      <td style={{ padding: '0.75rem 1rem' }}>{r.offers.toLocaleString()}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: 'var(--teal-600)' }}>{r.joined}</td>
-                      <td style={{ padding: '0.75rem 1rem' }}>
-                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                           <div style={{ width: 40, height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
-                             <div style={{ height: '100%', width: `${Math.min(r.convRate * 2, 100)}%`, background: 'var(--amber-500)', borderRadius: 2 }} />
-                           </div>
-                           <span>{r.convRate.toFixed(1)}%</span>
-                         </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+          <PanelTitle title="Recruiter Performance Matrix" />
+          {recruiterPerformance.length === 0 && (
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>No recruiter data detected</div>
+          )}
+          {recruiterPerformance.slice(0, 3).map((r, i) => (
+            <div key={r.recruiter} className="data-row" style={{ padding: '0.85rem 0', borderBottom: '1px solid var(--border)', borderRadius: 4 }}>
+              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>{r.recruiter}</span>
+                <span style={{
+                  fontSize: '0.72rem', padding: '3px 12px', borderRadius: 20, border: '1px solid',
+                  ...(i === 0
+                    ? { background: '#EFF6F4', color: 'var(--teal-500)', borderColor: '#C8E8E2' }
+                    : r.convRate >= 5
+                    ? { background: '#FFF8EE', color: 'var(--amber-600)', borderColor: '#F9D5A0' }
+                    : { background: '#FBF0EE', color: 'var(--brick-400)', borderColor: '#EBA99F' })
+                }}>
+                  {i === 0 ? 'Lead Performer' : r.convRate >= 5 ? 'Mid Performer' : 'Needs Support'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Applications <strong style={{ color: 'var(--text-secondary)' }}>{num(r.applications)}</strong></span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Offers <strong style={{ color: 'var(--text-secondary)' }}>{num(r.offers)}</strong></span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Joined <strong style={{ color: 'var(--text-secondary)' }}>{num(r.joined)}</strong></span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Conv. <strong style={{ color: rateColor(r.convRate) }}>{pct(r.convRate)}</strong></span>
+              </div>
+            </div>
+          ))}
+          {recruiterPerformance.length >= 2 && (
+            <>
+              <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                {recruiterPerformance.slice(0, 2).map(r => (
+                  <div key={r.recruiter} style={{ background: 'var(--warm-50)', borderRadius: 12, padding: '0.85rem', border: '1px solid var(--border)', textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: '0.2rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Offer Drop ({r.recruiter})</div>
+                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.5rem', color: r.offerDropRate < 25 ? 'var(--teal-500)' : 'var(--brick-400)', fontWeight: 700 }}>{pct(r.offerDropRate)}</div>
+                  </div>
+                ))}
+              </div>
+              {recruiterPerformance.length >= 2 && (
+                <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'var(--gold-light)', borderRadius: 10, borderLeft: '3px solid var(--gold)' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--amber-800)', lineHeight: 1.5 }}>
+                    {recruiterPerformance[1].recruiter} handles {pct(recruiterPerformance[1].applications / Math.max(kpis.totalApplicants, 1) * 100)} of pipeline volume — workload redistribution or capability investment recommended.
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </Panel>
+      </div>
+      <div style={{ marginTop: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+        <Panel>
+          <PanelTitle title="Top Rejection Reasons" badge="From 'Reason for Rejection' column" />
+          {data.topRejectionReasons.length === 0 ? (
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>No rejection reasons detected</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {data.topRejectionReasons.slice(0, 5).map(r => (
+                <div key={r.reason} className="data-row" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '1.1rem', fontFamily: "'Playfair Display', serif", fontWeight: 700, color: 'var(--brick-500)', width: 30, textAlign: 'center' }}>{num(r.count)}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4, flex: 1 }}>{r.reason}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Panel>
+
+        <Panel>
+          <PanelTitle title="Top Offer Decline Reasons" badge="Candidates who dropped offers" />
+          {!data.topOfferDropReasons || data.topOfferDropReasons.length === 0 ? (
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>No offer decline reasons detected</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {data.topOfferDropReasons.map(r => (
+                <div key={r.reason} className="data-row" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '1.1rem', fontFamily: "'Playfair Display', serif", fontWeight: 700, color: 'var(--amber-600)', width: 30, textAlign: 'center' }}>{num(r.count)}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4, flex: 1 }}>{r.reason}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </Panel>
       </div>
     </div>
