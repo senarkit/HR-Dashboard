@@ -154,6 +154,7 @@ interface DashboardData {
   }
   sourceEfficiency: { source: string; total: number; joined: number; rate: number }[]
   buPerformance: { bu: string; total: number; joined: number; rate: number }[]
+  topRejectionReasons: { reason: string; count: number }[]
   leakage: {
     candidateDrops: number
     r1Rejects: number
@@ -188,6 +189,7 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
   const dateKey      = findCol(allKeys, COLUMN_CANDIDATES.applicationDate)
   const quarterKey   = findCol(allKeys, COLUMN_CANDIDATES.quarter)
   const joinDateKey  = findCol(allKeys, COLUMN_CANDIDATES.joiningDate)
+  const reasonKey    = findCol(allKeys, ['reason for rejection', 'rejection reason', 'reason'])
 
   // Compute pipeline stages
   const totalApplicants = apps.length
@@ -200,6 +202,7 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
   const recruiterMap: Record<string, { apps: number; offers: number; joined: number; offerDrops: number }> = {}
   const posMap: Record<string, { apps: number; joined: number }> = {}
   const quarterMap: Record<string, { applicants: number; joined: number }> = {}
+  const rejectReasonMap: Record<string, number> = {}
 
   for (const row of apps) {
     const status = (row[statusKey] || '').trim()
@@ -248,6 +251,13 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
     const isShort     = matchStatus(status, STATUS_PATTERNS.shortlisted) || isOffer || isJoin || isOfferDrop || isR1 || isR2 || isNoShow
     // Interviewed = reached interview stage
     const isInterview = matchStatus(status, STATUS_PATTERNS.interview) || isOffer || isJoin || isOfferDrop || isR1 || isR2
+
+    if (isDrop || isR1 || isR2 || isScreenReject) {
+      const reason = (row[reasonKey] || '').trim()
+      if (reason && reason !== '-' && reason.toLowerCase() !== 'na' && reason.length > 2) {
+        rejectReasonMap[reason] = (rejectReasonMap[reason] || 0) + 1
+      }
+    }
 
     if (isJoin) {
       joined++; shortlisted++; interviewed++; offered++
@@ -339,6 +349,7 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
   const offersExtended = KPI_FORMULAS.offersExtended.compute(kpiCounts)
   const hiringRate     = KPI_FORMULAS.hiringRate.compute(kpiCounts)
   const offerDropRate  = KPI_FORMULAS.offerDropRate.compute(kpiCounts)
+  const offerAcceptanceRate = KPI_FORMULAS.offerAcceptanceRate ? KPI_FORMULAS.offerAcceptanceRate.compute(kpiCounts) : 0
   const fillRate       = KPI_FORMULAS.fillRate.compute(kpiCounts)
 
   // Avg Time to Fill (days) — only if we have date data for joined candidates
@@ -383,6 +394,11 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
     .sort((a, b) => b.apps - a.apps)
     .slice(0, TOP_POSITIONS_LIMIT)
 
+  const topRejectionReasons = Object.entries(rejectReasonMap)
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10)
+
   const vacancyByBU = Object.entries(vacBUMap)
     .filter(([bu]) => bu !== 'Unknown')
     .map(([bu, d]) => ({ bu, ...d }))
@@ -403,10 +419,12 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
       inProcessVacancies,
       fillRate,
       avgTimeToFill,
+      offerAcceptanceRate,
     },
     funnel: { applied: totalApplicants, shortlisted, interviewed, offered, joined },
     sourceEfficiency,
     buPerformance,
+    topRejectionReasons,
     leakage: { candidateDrops, r1Rejects, r2Rejects, noShows, offerDrops, screenRejects },
     quarterlyTrend,
     recruiterPerformance,

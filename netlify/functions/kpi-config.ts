@@ -78,13 +78,13 @@ export const STATUS_PATTERNS = {
 export const VACANCY_PATTERNS = {
 
   /** Vacancy has been filled / closed / candidate placed */
-  filled: [/fill(ed)?/i, /close(d)?/i, /hired?/i, /placed?/i, /joined?/i, /onboard(ed|ing)?/i, /accepted/i, /offer.*accepted/i, /position.*filled/i],
+  filled: [/^1$/, /fill(ed)?/i, /close(d)?/i, /hired?/i, /placed?/i, /joined?/i, /onboard(ed|ing)?/i, /accepted/i, /offer.*accepted/i, /position.*filled/i],
 
   /** Vacancy is temporarily paused */
   onHold: [/hold/i, /pause(d)?/i, /defer(red)?/i, /suspend(ed)?/i, /frozen/i, /postponed/i],
 
   /** Vacancy is actively being recruited for */
-  inProcess: [/process/i, /progress/i, /open/i, /active/i, /ongoing/i, /live/i, /available/i, /recruiting/i, /in progress/i],
+  inProcess: [/^0$/, /process/i, /progress/i, /open/i, /active/i, /ongoing/i, /live/i, /available/i, /recruiting/i, /in progress/i],
 }
 
 
@@ -117,19 +117,19 @@ export const COLUMN_CANDIDATES = {
   recruiter: ['recruiter', 'assigned to', 'hr', 'rm', 'talent acquisition', 'spoc'],
 
   /** Date the application was received */
-  applicationDate: ['date', 'application date', 'applied date', 'date of application', 'received date'],
+  applicationDate: ['application start', 'application start date', 'date', 'application date', 'applied date', 'date of application', 'received date'],
 
   /** Which financial quarter this falls in */
   quarter: ['quarter', 'q', 'fy quarter'],
 
   /** Date the candidate joined (for time-to-fill calculation) */
-  joiningDate: ['joining date', 'date of joining', 'doj', 'join date', 'onboarding date'],
+  joiningDate: ['hired date', 'joining date', 'date of joining', 'doj', 'join date', 'onboarding date'],
 }
 
 /** Column candidates for the Vacancies sheet */
 export const VACANCY_COLUMN_CANDIDATES = {
-  status: ['status', 'vacancy status', 'position status', 'stage'],
-  businessUnit: ['business unit', 'bu', 'company', 'division', 'department', 'entity'],
+  status: ['number of positions closed', 'status', 'vacancy status', 'position status', 'stage'],
+  businessUnit: ['business vertical', 'business unit', 'bu', 'company', 'division', 'department', 'entity'],
 }
 
 
@@ -187,6 +187,16 @@ export const KPI_FORMULAS = {
     compute: (counts: KPICounts) =>
       counts.offered > 0
         ? (counts.offerDrops / counts.offered) * 100
+        : 0,
+  },
+
+  offerAcceptanceRate: {
+    name: 'Offer Acceptance Rate',
+    formula: 'Joined ÷ Offers Extended × 100',
+    unit: '%',
+    compute: (counts: KPICounts) =>
+      counts.offered > 0
+        ? (counts.joined / counts.offered) * 100
         : 0,
   },
 
