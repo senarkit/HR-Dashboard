@@ -26,6 +26,7 @@ interface DashboardData {
     hiringRate: number
     offersExtended: number
     offerDropRate: number
+    offerAcceptanceRate: number
     candidateDrops: number
     screenRejects: number
     totalVacancies: number
@@ -38,6 +39,7 @@ interface DashboardData {
   funnel: { applied: number; shortlisted: number; interviewed: number; offered: number; joined: number }
   sourceEfficiency: { source: string; total: number; joined: number; rate: number }[]
   buPerformance: { bu: string; total: number; joined: number; rate: number }[]
+  topRejectionReasons: { reason: string; count: number }[]
   leakage: { candidateDrops: number; r1Rejects: number; noShows: number; r2Rejects: number; offerDrops: number; screenRejects: number }
   quarterlyTrend: { quarter: string; applicants: number; joined: number }[]
   recruiterPerformance: { recruiter: string; applications: number; offers: number; joined: number; convRate: number; offerDropRate: number }[]
@@ -453,6 +455,7 @@ const TABS = [
   { id: 'performance', label: '🏢 Performance', icon: '🏢' },
   { id: 'analytics', label: '📈 Analytics', icon: '📈' },
   { id: 'positions', label: '💼 Positions', icon: '💼' },
+  { id: 'glossary', label: '📖 Glossary', icon: '📖' },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -487,8 +490,8 @@ function OverviewTab({ data }: { data: DashboardData }) {
         </div>
         {/* Hiring Rate */}
         <KpiCard label="Hiring Rate" value={num(kpis.joined)} sub="Candidates joined" badge={pct(kpis.hiringRate)} badgeStyle={getIndicatorStyle(kpis.hiringRate, 'hiring')} />
-        {/* Offer Drop Rate */}
-        <KpiCard label="Offer Drop Rate" value={num(data.leakage.offerDrops)} sub={`Of ${num(kpis.offersExtended)} offers extended`} badge={pct(kpis.offerDropRate)} badgeStyle={getIndicatorStyle(kpis.offerDropRate, 'dropRate')} />
+        {/* Offer Acceptance Rate */}
+        <KpiCard label="Offer Acceptance" value={pct(kpis.offerAcceptanceRate)} sub={`Of ${num(kpis.offersExtended)} offers extended`} badgeStyle={getIndicatorStyle(100 - kpis.offerAcceptanceRate, 'dropRate')} />
         {/* Avg Time to Fill */}
         <KpiCard label="Avg Time to Fill" value={kpis.avgTimeToFill !== null ? `${kpis.avgTimeToFill}` : '—'} sub={kpis.avgTimeToFill !== null ? 'Days average' : 'Date data unavailable'} />
         {/* Total Vacancies */}
@@ -770,6 +773,23 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
           )}
         </Panel>
       </div>
+      <div style={{ marginTop: '1.5rem' }}>
+        <Panel>
+          <PanelTitle title="Top Rejection Reasons" badge="From 'Reason for Rejection' column" />
+          {data.topRejectionReasons.length === 0 ? (
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>No rejection reasons detected</div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+              {data.topRejectionReasons.map(r => (
+                <div key={r.reason} className="kpi-card-hover" style={{ background: 'var(--warm-50)', padding: '1rem', borderRadius: 10, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '1.25rem', fontFamily: "'Playfair Display', serif", fontWeight: 700, color: 'var(--brick-500)', marginBottom: '0.2rem' }}>{num(r.count)}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{r.reason}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Panel>
+      </div>
     </div>
   )
 }
@@ -808,6 +828,43 @@ function PositionsTab({ data }: { data: DashboardData }) {
                   <div style={{ width: 40, textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, color: 'var(--teal-500)' }}>{num(p.joined)}</div>
                 </div>
               ))}
+            </div>
+          ))}
+        </div>
+      </Panel>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TAB 5: GLOSSARY — KPI Definitions
+// ═══════════════════════════════════════════════════════════════
+
+function GlossaryTab() {
+  const glossaryItems = [
+    { name: 'Total Applicants', def: 'The total count of all candidate applications received across all business units.', calc: 'Count of all valid rows in the Applicants sheet.' },
+    { name: 'Hiring Rate', def: 'The percentage of total applicants who successfully joined the company.', calc: '(Joined ÷ Total Applicants) × 100' },
+    { name: 'Offers Extended', def: 'The total number of candidates who reached the offer stage, including those who joined, dropped the offer, or are pending.', calc: 'Count of candidates with statuses indicating an offer.' },
+    { name: 'Offer Acceptance Rate', def: 'The percentage of candidates who accepted their offers and joined.', calc: '(Joined ÷ Offers Extended) × 100' },
+    { name: 'Offer Drop Rate', def: 'The percentage of candidates who rejected their offer after it was extended.', calc: '(Offer Drops ÷ Offers Extended) × 100' },
+    { name: 'Candidate Drops', def: 'Candidates who withdrew from the recruitment process before reaching the offer stage.', calc: 'Count of candidates with "drop" statuses (mid-pipeline attrition).' },
+    { name: 'Screen Rejects', def: 'Candidates who were rejected at the initial screening stage before any interview.', calc: 'Count of candidates with screen reject statuses.' },
+    { name: 'Total Vacancies', def: 'The total number of open positions logged in the Vacancies sheet.', calc: 'Count of rows in the Vacancies sheet.' },
+    { name: 'Fill Rate', def: 'The percentage of vacancies that have been successfully filled.', calc: '(Filled Vacancies ÷ Total Vacancies) × 100' },
+    { name: 'Avg Time to Fill', def: 'The average number of days it takes to close a position after the application is received.', calc: 'Average of (Joining Date - Application Date) for all joined candidates in days.' },
+  ]
+
+  return (
+    <div className="tab-content">
+      <SectionLabel>Metric Definitions &amp; Derivations</SectionLabel>
+      <Panel>
+        <PanelTitle title="Dashboard Glossary" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {glossaryItems.map(item => (
+            <div key={item.name} style={{ background: 'var(--warm-50)', padding: '1.25rem', borderRadius: 12, border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: '1.1rem', fontFamily: "'Playfair Display', serif", fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>{item.name}</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', lineHeight: 1.5 }}><strong>Definition:</strong> {item.def}</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--teal-600)', fontWeight: 500 }}><strong>Derivation:</strong> {item.calc}</div>
             </div>
           ))}
         </div>
@@ -887,6 +944,7 @@ function Dashboard() {
       case 'performance': return <PerformanceTab data={data} />
       case 'analytics': return <AnalyticsTab data={data} />
       case 'positions': return <PositionsTab data={data} />
+      case 'glossary': return <GlossaryTab />
     }
   }
 
