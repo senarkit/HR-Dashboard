@@ -5,6 +5,7 @@ Checks TypeScript files for structural issues without needing Node.js.
 import re
 import sys
 import os
+import json
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 ERRORS = []
@@ -113,10 +114,15 @@ else:
 # ── 7. vercel.json exists ───────────────────────────────────────
 print("\n[ 7 ] Checking vercel.json...")
 vercel_json = read("vercel.json")
-if "rewrites" in vercel_json or "routes" in vercel_json:
-    ok("vercel.json has routing rules")
+vercel_data = json.loads(vercel_json)
+if "/index.html" in vercel_json:
+    err("vercel.json has SPA rewrite to /index.html — WRONG for TanStack Start SSR, causes 404")
 else:
-    warn("vercel.json may be missing routing rules")
+    ok("No bad SPA rewrites in vercel.json")
+if vercel_data.get("buildCommand"):
+    ok(f"buildCommand: {vercel_data['buildCommand']}")
+else:
+    warn("vercel.json missing buildCommand (Vercel may not use correct command)")
 
 # ── 8. vite.config.ts — no Netlify-specific plugin ─────────────
 print("\n[ 8 ] Checking vite.config.ts...")
