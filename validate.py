@@ -114,7 +114,7 @@ else:
 # ── 7. vercel.json removed ───────────────────────────────────────
 print("\n[ 7 ] Checking vercel.json...")
 if os.path.exists(os.path.join(ROOT, "vercel.json")):
-    err("vercel.json should be removed so Vercel can auto-detect TanStack Start / Nitro.")
+    warn("vercel.json is present. Check if it correctly sets framework: vite if needed.")
 else:
     ok("vercel.json is correctly removed.")
 
