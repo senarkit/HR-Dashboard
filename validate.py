@@ -31,6 +31,7 @@ required = [
     "netlify/functions/kpi-config.ts",
     "src/routes/index.tsx",
     "src/routes/__root.tsx",
+    "src/routes/api.dashboard-data.ts",
     "src/router.tsx",
     "src/styles.css",
     "netlify.toml",

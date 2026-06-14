@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiDashboardDataRouteImport } from './routes/api.dashboard-data'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -17,26 +18,36 @@ const IndexRoute = IndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 
+const ApiDashboardDataRoute = ApiDashboardDataRouteImport.update({
+  id: '/api/dashboard-data',
+  path: '/api/dashboard-data',
+  getParentRoute: () => rootRouteImport,
+} as any)
+
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/dashboard-data': typeof ApiDashboardDataRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/dashboard-data': typeof ApiDashboardDataRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/dashboard-data': typeof ApiDashboardDataRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/api/dashboard-data'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/api/dashboard-data'
+  id: '__root__' | '/' | '/api/dashboard-data'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiDashboardDataRoute: typeof ApiDashboardDataRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +59,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/dashboard-data': {
+      id: '/api/dashboard-data'
+      path: '/api/dashboard-data'
+      fullPath: '/api/dashboard-data'
+      preLoaderRoute: typeof ApiDashboardDataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiDashboardDataRoute: ApiDashboardDataRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
