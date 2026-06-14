@@ -49,6 +49,8 @@ interface DashboardData {
   recruiterPerformance: { recruiter: string; applications: number; offers: number; joined: number; convRate: number; offerDropRate: number }[]
   topPositions: { position: string; apps: number; joined: number }[]
   vacancyByBU: { bu: string; total: number; filled: number; onHold: number; inProcess: number }[]
+  topOfferDropReasons: { reason: string; count: number }[]
+  timeToFillByBU: { bu: string; avgDays: number }[]
   lastUpdated: string
 }
 
@@ -687,7 +689,8 @@ function PerformanceTab({ data }: { data: DashboardData }) {
 // ═══════════════════════════════════════════════════════════════
 
 function AnalyticsTab({ data }: { data: DashboardData }) {
-  const { quarterlyTrend, recruiterPerformance, topOfferDropReasons } = data;
+  const { quarterlyTrend, recruiterPerformance } = data;
+  const topOfferDropReasons = data.topOfferDropReasons;
 
   // -- 1. HERO METRICS (Derived from quarterly trend) --
   const totalApplicants = quarterlyTrend.reduce((acc, q) => acc + q.applicants, 0);
@@ -968,7 +971,7 @@ function Dashboard() {
       const params = new URLSearchParams()
       if (applicantsUrl !== DEFAULT_APPLICANTS) params.set('applicants', applicantsUrl)
       if (vacanciesUrl !== DEFAULT_VACANCIES) params.set('vacancies', vacanciesUrl)
-      const url = `/.netlify/functions/dashboard-data${params.toString() ? '?' + params.toString() : ''}`
+      const url = `/api/dashboard-data${params.toString() ? '?' + params.toString() : ''}`
       const res = await fetch(url)
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }))

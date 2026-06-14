@@ -1,19 +1,49 @@
-import type { Handler } from '@netlify/functions'
-import {
-  STATUS_PATTERNS,
-  VACANCY_PATTERNS,
-  COLUMN_CANDIDATES,
-  VACANCY_COLUMN_CANDIDATES,
-  KPI_FORMULAS,
-  monthToQuarter,
-  TOP_POSITIONS_LIMIT,
-  type KPICounts,
-} from './kpi-config'
+// ─── KPI Config (inlined from netlify/functions/kpi-config.ts) ────────────────
 
-const DEFAULT_APPLICANTS_URL =
-  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRJjDWZWvkAm7MVC5aA0vAjS3QMzbgc9CC8ZFJ8v5mHqXKLUBEO5N0xPWKl7MHUMEQ5yZ2_Omv0j42F/pub?gid=2138370345&single=true&output=csv'
-const DEFAULT_VACANCIES_URL =
-  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRJjDWZWvkAm7MVC5aA0vAjS3QMzbgc9CC8ZFJ8v5mHqXKLUBEO5N0xPWKl7MHUMEQ5yZ2_Omv0j42F/pub?gid=608034954&single=true&output=csv'
+const STATUS_PATTERNS = {
+  joined: [/\bjoin/i, /\bonboard/i],
+  offer: [/\boffer\b/i, /offer extend/i, /extended/i],
+  offerDrop: [/offer.*drop/i, /drop.*offer/i],
+  shortlisted: [/shortlist/i, /screen pass/i, /l1 pass/i, /selected/i, /profile shar/i],
+  interview: [/interview/i, /l1/i, /l2/i, /r1/i, /r2/i, /technical/i, /hr round/i],
+  r1Reject: [/r1.*reject/i, /round.?1.*reject/i, /l1.*reject/i, /1st.*reject/i],
+  r2Reject: [/r2.*reject/i, /round.?2.*reject/i, /l2.*reject/i, /2nd.*reject/i],
+  noShow: [/no.?show/i, /absent/i],
+  dropped: [/\bdrop\b/i, /candidate.*drop/i, /not interest/i, /withdrawn/i, /declined/i],
+  screenReject: [/screen.*reject/i, /profile reject/i, /not shortlist/i, /rejected/i],
+}
+
+const VACANCY_PATTERNS = {
+  filled: [/^1$/, /fill(ed)?/i, /close(d)?/i, /hired?/i, /placed?/i, /joined?/i, /onboard(ed|ing)?/i, /accepted/i, /offer.*accepted/i, /position.*filled/i],
+  onHold: [/hold/i, /pause(d)?/i, /defer(red)?/i, /suspend(ed)?/i, /frozen/i, /postponed/i],
+  inProcess: [/^0$/, /process/i, /progress/i, /open/i, /active/i, /ongoing/i, /live/i, /available/i, /recruiting/i, /in progress/i],
+}
+
+const COLUMN_CANDIDATES = {
+  status: ['status', 'current status', 'stage', 'pipeline stage', 'recruitment status'],
+  source: ['source', 'source channel', 'channel', 'source of application'],
+  businessUnit: ['business unit', 'bu', 'company', 'division', 'department', 'entity'],
+  position: ['position', 'role', 'job title', 'designation', 'opening', 'vacancy'],
+  recruiter: ['recruiter', 'assigned to', 'hr', 'rm', 'talent acquisition', 'spoc'],
+  applicationDate: ['application start', 'application start date', 'date', 'application date', 'applied date', 'date of application', 'received date'],
+  quarter: ['quarter', 'q', 'fy quarter'],
+  joiningDate: ['hired date', 'joining date', 'date of joining', 'doj', 'join date', 'onboarding date'],
+}
+
+const VACANCY_COLUMN_CANDIDATES = {
+  status: ['number of positions closed', 'status', 'vacancy status', 'position status', 'stage'],
+  businessUnit: ['business vertical', 'business unit', 'bu', 'company', 'division', 'department', 'entity'],
+}
+
+const TOP_POSITIONS_LIMIT = 14
+
+function monthToQuarter(month: number): string {
+  if (month >= 4 && month <= 6) return 'Q1'
+  if (month >= 7 && month <= 9) return 'Q2'
+  if (month >= 10 && month <= 12) return 'Q3'
+  if (month >= 1 && month <= 3) return 'Q4'
+  return 'Q1'
+}
 
 // ─── CSV Parsing ─────────────────────────────────────────────
 
@@ -58,44 +88,30 @@ function matchStatus(status: string, patterns: RegExp[]): boolean {
   return patterns.some(p => p.test(status))
 }
 
-/**
- * Tries to parse a date string into a Date object.
- * Supports DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, and various separators.
- */
 function parseDate(dateStr: string): Date | null {
   if (!dateStr) return null
   const s = dateStr.trim()
-
-  // YYYY-MM-DD or YYYY/MM/DD
   const isoMatch = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/)
   if (isoMatch) {
     const d = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]))
     if (!isNaN(d.getTime())) return d
   }
-
-  // DD/MM/YYYY or DD-MM-YYYY (common in India)
   const ddmmMatch = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/)
   if (ddmmMatch) {
     let day = parseInt(ddmmMatch[1])
     let month = parseInt(ddmmMatch[2])
     let year = parseInt(ddmmMatch[3])
     if (year < 100) year += 2000
-    // If first number > 12, it must be the day (DD/MM/YYYY)
     if (day > 12) {
       // day is indeed day, month is month
     } else if (month > 12) {
-      // month > 12 means first is month (MM/DD/YYYY)
       const tmp = day; day = month; month = tmp
     }
-    // else assume DD/MM/YYYY (Indian convention)
     const d = new Date(year, month - 1, day)
     if (!isNaN(d.getTime())) return d
   }
-
-  // Fallback: try native Date.parse
   const fallback = new Date(s)
   if (!isNaN(fallback.getTime())) return fallback
-
   return null
 }
 
@@ -108,15 +124,11 @@ function getQuarter(dateStr: string, quarter: string): string {
   if (!dateStr) return 'Q1'
   const parsed = parseDate(dateStr)
   if (!parsed) return 'Q1'
-  const month = parsed.getMonth() + 1 // 1-indexed
+  const month = parsed.getMonth() + 1
   if (month < 1 || month > 12) return 'Q1'
   return monthToQuarter(month)
 }
 
-/**
- * Finds the best matching column name from the available keys.
- * Tries exact match first, then partial match.
- */
 function findCol(allKeys: string[], candidates: string[]): string {
   for (const c of candidates) {
     const lc = c.toLowerCase()
@@ -136,6 +148,7 @@ interface DashboardData {
     hiringRate: number
     offersExtended: number
     offerDropRate: number
+    offerAcceptanceRate: number
     candidateDrops: number
     screenRejects: number
     totalVacancies: number
@@ -143,26 +156,13 @@ interface DashboardData {
     onHoldVacancies: number
     inProcessVacancies: number
     fillRate: number
-    avgTimeToFill: number | null  // days, null if date data unavailable
+    avgTimeToFill: number | null
   }
-  funnel: {
-    applied: number
-    shortlisted: number
-    interviewed: number
-    offered: number
-    joined: number
-  }
+  funnel: { applied: number; shortlisted: number; interviewed: number; offered: number; joined: number }
   sourceEfficiency: { source: string; total: number; joined: number; rate: number }[]
   buPerformance: { bu: string; total: number; joined: number; rate: number }[]
   topRejectionReasons: { reason: string; count: number }[]
-  leakage: {
-    candidateDrops: number
-    r1Rejects: number
-    noShows: number
-    r2Rejects: number
-    offerDrops: number
-    screenRejects: number
-  }
+  leakage: { candidateDrops: number; r1Rejects: number; noShows: number; r2Rejects: number; offerDrops: number; screenRejects: number }
   quarterlyTrend: { quarter: string; applicants: number; joined: number }[]
   recruiterPerformance: { recruiter: string; applications: number; offers: number; joined: number; convRate: number; offerDropRate: number }[]
   topPositions: { position: string; apps: number; joined: number }[]
@@ -175,14 +175,10 @@ interface DashboardData {
 // ─── Dashboard Computation ───────────────────────────────────
 
 function computeDashboard(applicants: Record<string, string>[], vacancies: Record<string, string>[]): DashboardData {
-  // Filter out completely empty rows
   const apps = applicants.filter(r => Object.values(r).some(v => v !== ''))
-
-  // Detect key column names by sampling the first row
   const sample = apps[0] || {}
   const allKeys = Object.keys(sample)
 
-  // Resolve column names using config candidates
   const statusKey    = findCol(allKeys, COLUMN_CANDIDATES.status)
   const sourceKey    = findCol(allKeys, COLUMN_CANDIDATES.source)
   const buKey        = findCol(allKeys, COLUMN_CANDIDATES.businessUnit)
@@ -193,11 +189,10 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
   const joinDateKey  = findCol(allKeys, COLUMN_CANDIDATES.joiningDate)
   const reasonKey    = findCol(allKeys, ['reason for rejection', 'rejection reason', 'reason'])
 
-  // Compute pipeline stages
   const totalApplicants = apps.length
   let shortlisted = 0, interviewed = 0, offered = 0, joined = 0
   let candidateDrops = 0, r1Rejects = 0, r2Rejects = 0, noShows = 0, offerDrops = 0, screenRejects = 0
-  const timeToFillDays: number[] = [] // collect days-to-fill for joined candidates
+  const timeToFillDays: number[] = []
 
   const sourceMap: Record<string, { total: number; joined: number }> = {}
   const buMap: Record<string, { total: number; joined: number }> = {}
@@ -218,30 +213,17 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
     const quarterStr = row[quarterKey] || ''
     const quarter = getQuarter(dateStr, quarterStr)
 
-    // Quarter tracking
     if (!quarterMap[quarter]) quarterMap[quarter] = { applicants: 0, joined: 0 }
     quarterMap[quarter].applicants++
-
-    // Source tracking
     if (!sourceMap[source]) sourceMap[source] = { total: 0, joined: 0 }
     sourceMap[source].total++
-
-    // BU tracking
     if (!buMap[bu]) buMap[bu] = { total: 0, joined: 0 }
     buMap[bu].total++
-
-    // Position tracking
     if (!posMap[position]) posMap[position] = { apps: 0, joined: 0 }
     posMap[position].apps++
-
-    // Recruiter tracking
     if (!recruiterMap[recruiter]) recruiterMap[recruiter] = { apps: 0, offers: 0, joined: 0, offerDrops: 0 }
     recruiterMap[recruiter].apps++
 
-    // ──────────────────────────────────────────────────────────
-    //  Status classification (priority order — first match wins)
-    //  See kpi-config.ts STATUS_PATTERNS for keyword definitions
-    // ──────────────────────────────────────────────────────────
     const isJoin      = matchStatus(status, STATUS_PATTERNS.joined)
     const isOfferDrop = matchStatus(status, STATUS_PATTERNS.offerDrop)
     const isOffer     = !isJoin && !isOfferDrop && matchStatus(status, STATUS_PATTERNS.offer)
@@ -250,10 +232,7 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
     const isR2        = matchStatus(status, STATUS_PATTERNS.r2Reject)
     const isNoShow    = matchStatus(status, STATUS_PATTERNS.noShow)
     const isScreenReject = !isR1 && !isR2 && matchStatus(status, STATUS_PATTERNS.screenReject)
-
-    // Shortlisted = passed initial screen (does NOT include screen rejects)
     const isShort     = matchStatus(status, STATUS_PATTERNS.shortlisted) || isOffer || isJoin || isOfferDrop || isR1 || isR2 || isNoShow
-    // Interviewed = reached interview stage
     const isInterview = matchStatus(status, STATUS_PATTERNS.interview) || isOffer || isJoin || isOfferDrop || isR1 || isR2
 
     if (isDrop || isR1 || isR2 || isScreenReject || isOfferDrop) {
@@ -273,10 +252,8 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
       buMap[bu].joined++
       posMap[position].joined++
       recruiterMap[recruiter].joined++
-      recruiterMap[recruiter].offers++  // FIX: joined candidates passed offer stage
+      recruiterMap[recruiter].offers++
       quarterMap[quarter].joined++
-
-      // Compute time-to-fill for this joined candidate
       const appDate = parseDate(dateStr)
       const joinDate = parseDate(row[joinDateKey] || '')
       if (appDate && joinDate && joinDate > appDate) {
@@ -307,18 +284,11 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
       noShows++; shortlisted++
     } else if (isScreenReject) {
       screenRejects++
-      // FIX: Screen rejects are NOT counted as shortlisted
-      // They were rejected at screening — they never passed the shortlist
     } else if (isShort) {
       shortlisted++
     }
   }
 
-  // ──────────────────────────────────────────────────────────
-  //  Compute KPI values using formulas from kpi-config.ts
-  // ──────────────────────────────────────────────────────────
-
-  // Process vacancies first to get vacancy counts
   const vacs = vacancies.filter(r => Object.values(r).some(v => v !== ''))
   const vacSample = vacs[0] || {}
   const vacKeys = Object.keys(vacSample)
@@ -334,59 +304,40 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
     const bu = (row[vacBUKey] || 'Unknown').trim() || 'Unknown'
     if (!vacBUMap[bu]) vacBUMap[bu] = { total: 0, filled: 0, onHold: 0, inProcess: 0 }
     vacBUMap[bu].total++
-
     if (matchStatus(status, VACANCY_PATTERNS.filled)) {
       filledVacancies++; vacBUMap[bu].filled++
     } else if (matchStatus(status, VACANCY_PATTERNS.onHold)) {
       onHoldVacancies++; vacBUMap[bu].onHold++
-    } else if (matchStatus(status, VACANCY_PATTERNS.inProcess) || !status) {
-      inProcessVacancies++; vacBUMap[bu].inProcess++
     } else {
       inProcessVacancies++; vacBUMap[bu].inProcess++
     }
   }
 
-  // Build KPI counts object for formula computation
-  const kpiCounts: KPICounts = {
-    totalApplicants,
-    joined,
-    offered,
-    offerDrops,
-    candidateDrops,
-    screenRejects,
-    totalVacancies,
-    filledVacancies,
-  }
-
-  const offersExtended = KPI_FORMULAS.offersExtended.compute(kpiCounts)
-  const hiringRate     = KPI_FORMULAS.hiringRate.compute(kpiCounts)
-  const offerDropRate  = KPI_FORMULAS.offerDropRate.compute(kpiCounts)
-  const offerAcceptanceRate = KPI_FORMULAS.offerAcceptanceRate ? KPI_FORMULAS.offerAcceptanceRate.compute(kpiCounts) : 0
-  const fillRate       = KPI_FORMULAS.fillRate.compute(kpiCounts)
-
-  // Avg Time to Fill (days) — only if we have date data for joined candidates
+  const offersExtended = offered
+  const hiringRate = totalApplicants > 0 ? (joined / totalApplicants) * 100 : 0
+  const offerDropRate = offered > 0 ? (offerDrops / offered) * 100 : 0
+  const offerAcceptanceRate = offered > 0 ? (joined / offered) * 100 : 0
+  const fillRate = totalVacancies > 0
+    ? (filledVacancies > 0 ? (filledVacancies / totalVacancies) * 100 : (joined / totalVacancies) * 100)
+    : 0
   const avgTimeToFill = timeToFillDays.length > 0
     ? Math.round(timeToFillDays.reduce((a, b) => a + b, 0) / timeToFillDays.length)
     : null
 
-  // Source efficiency
   const sourceEfficiency = Object.entries(sourceMap)
     .map(([source, d]) => ({ source, total: d.total, joined: d.joined, rate: d.total > 0 ? (d.joined / d.total) * 100 : 0 }))
     .sort((a, b) => b.rate - a.rate)
 
-  // BU performance
   const buPerformance = Object.entries(buMap)
     .map(([bu, d]) => ({ bu, total: d.total, joined: d.joined, rate: d.total > 0 ? (d.joined / d.total) * 100 : 0 }))
     .sort((a, b) => b.total - a.total)
 
-  // Quarterly trend
   const quarterlyTrend = ['Q1', 'Q2', 'Q3', 'Q4'].map(q => ({
     quarter: q,
     applicants: quarterMap[q]?.applicants || 0,
     joined: quarterMap[q]?.joined || 0,
   }))
 
-  // Recruiter performance
   const recruiterPerformance = Object.entries(recruiterMap)
     .filter(([name]) => name !== 'Unknown')
     .map(([recruiter, d]) => ({
@@ -399,7 +350,6 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
     }))
     .sort((a, b) => b.joined - a.joined)
 
-  // Top positions
   const topPositions = Object.entries(posMap)
     .filter(([p]) => p !== 'Unknown')
     .map(([position, d]) => ({ position, apps: d.apps, joined: d.joined }))
@@ -428,20 +378,10 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
 
   return {
     kpis: {
-      totalApplicants,
-      joined,
-      hiringRate,
-      offersExtended,
-      offerDropRate,
-      candidateDrops,
-      screenRejects,
-      totalVacancies,
-      filledVacancies,
-      onHoldVacancies,
-      inProcessVacancies,
-      fillRate,
-      avgTimeToFill,
-      offerAcceptanceRate,
+      totalApplicants, joined, hiringRate, offersExtended,
+      offerDropRate, offerAcceptanceRate, candidateDrops, screenRejects,
+      totalVacancies, filledVacancies, onHoldVacancies, inProcessVacancies,
+      fillRate, avgTimeToFill,
     },
     funnel: { applied: totalApplicants, shortlisted, interviewed, offered, joined },
     sourceEfficiency,
@@ -458,33 +398,26 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
   }
 }
 
-export async function fetchDashboardData(applicantsUrl: string, vacanciesUrl: string): Promise<DashboardData> {
-  const [appsRes, vacsRes] = await Promise.all([
-    fetch(applicantsUrl),
-    fetch(vacanciesUrl),
-  ])
+// ─── Vercel API Handler ───────────────────────────────────────
 
-  if (!appsRes.ok || !vacsRes.ok) {
-    throw new Error(`Failed to fetch CSV data: applicants=${appsRes.status}, vacancies=${vacsRes.status}`)
-  }
+const DEFAULT_APPLICANTS =
+  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRJjDWZWvkAm7MVC5aA0vAjS3QMzbgc9CC8ZFJ8v5mHqXKLUBEO5N0xPWKl7MHUMEQ5yZ2_Omv0j42F/pub?gid=2138370345&single=true&output=csv'
+const DEFAULT_VACANCIES =
+  'https://docs.google.com/spreadsheets/d/e/2PACX-1vRJjDWZWvkAm7MVC5aA0vAjS3QMzbgc9CC8ZFJ8v5mHqXKLUBEO5N0xPWKl7MHUMEQ5yZ2_Omv0j42F/pub?gid=608034954&single=true&output=csv'
 
-  const [appsText, vacsText] = await Promise.all([appsRes.text(), vacsRes.text()])
-  return computeDashboard(parseCSV(appsText), parseCSV(vacsText))
-}
-
-// ─── Netlify Function Handler ────────────────────────────────
-
-export const handler: Handler = async (event) => {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Cache-Control': 'public, max-age=300', // cache 5 min
-  }
-
+export default async function handler(req: any, res: any) {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Cache-Control', 'public, max-age=300')
   try {
-    const params = new URLSearchParams(event.queryStringParameters as Record<string, string> || {})
-    const applicantsUrl = params.get('applicants') || DEFAULT_APPLICANTS_URL
-    const vacanciesUrl = params.get('vacancies') || DEFAULT_VACANCIES_URL
+    const query = req.query || {}
+    const params = new URLSearchParams(
+      Object.entries(query).flatMap(([key, value]) =>
+        Array.isArray(value) ? value.map((v) => [key, v]) : [[key, value]],
+      ) as [string, string][],
+    )
+
+    const applicantsUrl = params.get('applicants') || DEFAULT_APPLICANTS
+    const vacanciesUrl = params.get('vacancies') || DEFAULT_VACANCIES
 
     const [appsRes, vacsRes] = await Promise.all([
       fetch(applicantsUrl),
@@ -492,26 +425,19 @@ export const handler: Handler = async (event) => {
     ])
 
     if (!appsRes.ok || !vacsRes.ok) {
-      return {
-        statusCode: 502,
-        headers,
-        body: JSON.stringify({ error: 'Failed to fetch CSV data', applicantsStatus: appsRes.status, vacanciesStatus: vacsRes.status }),
-      }
+      res.setHeader('Content-Type', 'application/json')
+      res.status(502).send(JSON.stringify({ error: 'Failed to fetch CSV data' }))
+      return
     }
 
-    const data = await fetchDashboardData(applicantsUrl, vacanciesUrl)
+    const [appsText, vacsText] = await Promise.all([appsRes.text(), vacsRes.text()])
+    const data = computeDashboard(parseCSV(appsText), parseCSV(vacsText))
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify(data),
-    }
+    res.setHeader('Content-Type', 'application/json')
+    res.status(200).send(JSON.stringify(data))
   } catch (err) {
-    console.error('dashboard-data error:', err)
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: String(err) }),
-    }
+    console.error('api/dashboard-data error:', err)
+    res.setHeader('Content-Type', 'application/json')
+    res.status(500).send(JSON.stringify({ error: String(err) }))
   }
 }
