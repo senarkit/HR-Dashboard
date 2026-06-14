@@ -35,7 +35,6 @@ required = [
     "src/router.tsx",
     "src/styles.css",
     "netlify.toml",
-    "vercel.json",
     "package.json",
     "vite.config.ts",
     "tsconfig.json",
@@ -112,18 +111,12 @@ if "/index.html" in netlify_toml:
 else:
     warn("netlify.toml missing SPA fallback /* → /index.html")
 
-# ── 7. vercel.json exists ───────────────────────────────────────
+# ── 7. vercel.json removed ───────────────────────────────────────
 print("\n[ 7 ] Checking vercel.json...")
-vercel_json = read("vercel.json")
-vercel_data = json.loads(vercel_json)
-if "/index.html" in vercel_json:
-    err("vercel.json has SPA rewrite to /index.html — WRONG for TanStack Start SSR, causes 404")
+if os.path.exists(os.path.join(ROOT, "vercel.json")):
+    err("vercel.json should be removed so Vercel can auto-detect TanStack Start / Nitro.")
 else:
-    ok("No bad SPA rewrites in vercel.json")
-if vercel_data.get("buildCommand"):
-    ok(f"buildCommand: {vercel_data['buildCommand']}")
-else:
-    warn("vercel.json missing buildCommand (Vercel may not use correct command)")
+    ok("vercel.json is correctly removed.")
 
 # ── 8. vite.config.ts — no Netlify-specific plugin ─────────────
 print("\n[ 8 ] Checking vite.config.ts...")
