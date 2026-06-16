@@ -94,11 +94,11 @@ Most recruitment reports are static spreadsheets passed around in email. This da
 
 ```mermaid
 graph LR
-    A[("📝 Google Sheets<br/>(Published as CSV)")] -->|HTTP GET| B["⚡ Netlify Function<br/><code>dashboard-data.ts</code>"]
-    B -->|Parse CSV<br/>Compute KPIs| C["📊 JSON Response"]
-    C -->|fetch()| D["⚛️ React Dashboard<br/><code>index.tsx</code>"]
-    D -->|Chart.js| E["📈 Interactive Charts"]
-    D -->|CSS Variables| F["🎨 Boardroom UI"]
+    A["Google Sheets - Published CSV"] -->|HTTP GET| B["Netlify Function - dashboard-data.ts"]
+    B -->|"Parse CSV, Compute KPIs"| C["JSON Response"]
+    C -->|fetch| D["React Dashboard - index.tsx"]
+    D -->|Chart.js| E["Interactive Charts"]
+    D -->|CSS Variables| F["Boardroom UI"]
 
     style A fill:#FEF3DC,stroke:#D4A843,color:#542208
     style B fill:#162640,stroke:#D4A843,color:#FFFFFF
