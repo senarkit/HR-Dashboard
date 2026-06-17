@@ -7,6 +7,9 @@ import {
   PointElement,
   LineElement,
   ArcElement,
+  BarController,
+  LineController,
+  DoughnutController,
   Title,
   Tooltip,
   Legend,
@@ -14,7 +17,7 @@ import {
 } from 'chart.js'
 import { Bar, Doughnut, Chart } from 'react-chartjs-2'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler)
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, BarController, LineController, DoughnutController, Title, Tooltip, Legend, Filler)
 
 // ─── Types ───────────────────────────────────────────────────
 
