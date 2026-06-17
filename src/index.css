@@ -1,5 +1,3 @@
-@import "tailwindcss" source("../");
-
 :root {
   /* ─── Primary: Deep Navy (industrial-corporate) ─── */
   --navy-900: #070E1A;
@@ -117,40 +115,6 @@ body {
 .glass-panel:hover {
   transform: translateY(-2px);
   box-shadow: 0 12px 40px rgba(15, 27, 45, 0.12);
-}
-
-/* ─── Tab navigation ─── */
-.tab-bar {
-  display: flex;
-  gap: 2px;
-  background: rgba(15, 27, 45, 0.06);
-  border-radius: 12px;
-  padding: 4px;
-}
-.tab-item {
-  flex: 1;
-  padding: 0.65rem 1.25rem;
-  border-radius: 10px;
-  border: none;
-  background: transparent;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  letter-spacing: 0.01em;
-}
-.tab-item:hover {
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.5);
-}
-.tab-item.active {
-  color: var(--navy-800);
-  background: white;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(15, 27, 45, 0.1);
 }
 
 /* ─── KPI card hover ─── */

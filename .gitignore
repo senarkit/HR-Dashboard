@@ -3,27 +3,23 @@ node_modules/
 
 # Build output
 dist/
-assets/
 
-# Environment variables
+# Environment
 .env
-.env.local
+.env.*
 
-# Data files — NEVER commit spreadsheets or data exports
-*.xlsx
-*.xls
-*.csv
+# Vercel
+.vercel/
 
-# AI/Agent folders (optional, but recommended to keep repo clean)
-.claude/
-.agents/
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# Netlify
-.netlify/
-
-# TanStack
-.tanstack/
-
-# OS files
+# OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log

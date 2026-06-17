@@ -1,4 +1,3 @@
-import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Chart as ChartJS,
@@ -16,10 +15,6 @@ import {
 import { Bar, Doughnut, Chart } from 'react-chartjs-2'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler)
-
-export const Route = createFileRoute('/')({
-  component: Dashboard,
-})
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -49,6 +44,8 @@ interface DashboardData {
   recruiterPerformance: { recruiter: string; applications: number; offers: number; joined: number; convRate: number; offerDropRate: number }[]
   topPositions: { position: string; apps: number; joined: number }[]
   vacancyByBU: { bu: string; total: number; filled: number; onHold: number; inProcess: number }[]
+  topOfferDropReasons: { reason: string; count: number }[]
+  timeToFillByBU: { bu: string; avgDays: number }[]
   lastUpdated: string
 }
 
@@ -56,10 +53,9 @@ const DEFAULT_APPLICANTS = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRJj
 const DEFAULT_VACANCIES = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRJjDWZWvkAm7MVC5aA0vAjS3QMzbgc9CC8ZFJ8v5mHqXKLUBEO5N0xPWKl7MHUMEQ5yZ2_Omv0j42F/pub?gid=608034954&single=true&output=csv'
 
 // ─── Credential verification (obscured) ─────────────────────
-// Credentials are stored as SHA-256 hex digests, never in plain text
 const AUTH_KEY = 'hrd_authed'
-const _H = '0dda3f73b1195b3b098999237ff2202d10f2b09538a5ec4c6aceb8e5375ea453' // username hash
-const _P = '8e6f347ae1169d93d6f2b87118552d890c24c753edbc9ce76010c79904769e54' // password hash
+const _H = '0dda3f73b1195b3b098999237ff2202d10f2b09538a5ec4c6aceb8e5375ea453'
+const _P = '8e6f347ae1169d93d6f2b87118552d890c24c753edbc9ce76010c79904769e54'
 
 async function sha256(str: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
@@ -150,14 +146,12 @@ function LoginScreen({ onAuth }: { onAuth: () => void }) {
       background: 'linear-gradient(135deg, var(--navy-900) 0%, var(--navy-800) 40%, var(--navy-700) 100%)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
     }}>
-      {/* Subtle radial glow */}
       <div style={{
         position: 'absolute', top: '18%', left: '50%', transform: 'translateX(-50%)',
         width: 600, height: 300, borderRadius: '50%',
         background: 'radial-gradient(ellipse, rgba(212,168,67,0.08) 0%, transparent 70%)',
         pointerEvents: 'none',
       }} />
-      {/* Diagonal pattern */}
       <div className="header-pattern" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.5 }} />
 
       <div style={{ position: 'relative', width: '100%', maxWidth: 420, animation: shake ? 'shake 0.5s ease' : undefined }}>
@@ -425,7 +419,7 @@ function LeakCard({ type, num: n, label, sub }: { type: string; num: number; lab
     offerdrop: { border: 'var(--brick-400)', numColor: 'var(--brick-500)' },
     success: { border: 'var(--teal-400)', numColor: 'var(--teal-500)' },
   }
-  const c = colorMap[type] || colorMap.drop
+  const c = colorMap[type] || colorMap.drop!
   return (
     <div className="kpi-card-hover" style={{
       border: '1px solid var(--border)', borderRadius: 16, padding: '1.25rem', position: 'relative', overflow: 'hidden',
@@ -474,12 +468,10 @@ function OverviewTab({ data }: { data: DashboardData }) {
 
   return (
     <div className="tab-content">
-      {/* KPI Strip */}
       <SectionLabel>Executive KPIs</SectionLabel>
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2.5rem',
       }}>
-        {/* Total Applicants — hero card */}
         <div className="kpi-card-hover" style={{
           background: 'linear-gradient(135deg, var(--navy-800) 0%, var(--navy-700) 100%)',
           borderRadius: 16, padding: '1.5rem', position: 'relative', overflow: 'hidden',
@@ -492,21 +484,15 @@ function OverviewTab({ data }: { data: DashboardData }) {
             <div style={{ fontSize: '0.75rem', color: 'rgba(180,190,210,0.5)' }}>Across all business units</div>
           </div>
         </div>
-        {/* Hiring Rate */}
         <KpiCard label="Hiring Rate" value={num(kpis.joined)} sub="Candidates joined" badge={pct(kpis.hiringRate)} badgeStyle={getIndicatorStyle(kpis.hiringRate, 'hiring')} />
-        {/* Offer Acceptance Rate */}
         <KpiCard label="Offer Acceptance" value={pct(kpis.offerAcceptanceRate)} sub={`Of ${num(kpis.offersExtended)} offers extended`} badgeStyle={getIndicatorStyle(100 - kpis.offerAcceptanceRate, 'dropRate')} />
-        {/* Avg Time to Fill */}
         <KpiCard label="Avg Time to Fill" value={kpis.avgTimeToFill !== null ? `${kpis.avgTimeToFill}` : '—'} sub={kpis.avgTimeToFill !== null ? 'Days average' : 'Date data unavailable'} />
-        {/* Total Vacancies */}
         <KpiCard label="Total Vacancies" value={num(kpis.totalVacancies)} sub={`${num(kpis.filledVacancies)} closed · ${num(kpis.onHoldVacancies)} on hold`} />
-        {/* Candidate Drops */}
         <KpiCard label="Candidate Drops" value={num(kpis.candidateDrops)} sub="Mid-pipeline attrition"
           badge={kpis.totalApplicants > 0 ? pct(kpis.candidateDrops / kpis.totalApplicants * 100) : '0%'}
           badgeStyle={{ background: '#FDEAE8', color: '#9A2A1E' }} />
       </div>
 
-      {/* Funnel + Source */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
         <Panel>
           <PanelTitle title="Recruitment Funnel — Pipeline Conversion" badge={`${num(funnel.applied)} total applicants`} />
@@ -689,12 +675,10 @@ function PerformanceTab({ data }: { data: DashboardData }) {
 function AnalyticsTab({ data }: { data: DashboardData }) {
   const { quarterlyTrend, recruiterPerformance, topOfferDropReasons } = data;
 
-  // -- 1. HERO METRICS (Derived from quarterly trend) --
   const totalApplicants = quarterlyTrend.reduce((acc, q) => acc + q.applicants, 0);
   const totalJoined = quarterlyTrend.reduce((acc, q) => acc + q.joined, 0);
   const overallConversion = totalApplicants > 0 ? ((totalJoined / totalApplicants) * 100).toFixed(1) : '0';
 
-  // -- 2. MIXED CHART: Volume vs. Conversion (Line + Bar) --
   const mixedChartData = {
     labels: quarterlyTrend.map(q => q.quarter),
     datasets: [
@@ -737,12 +721,10 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
     scales: {
       x: { grid: { display: false } },
       y: { type: 'linear' as const, display: true, position: 'left' as const, grid: { color: 'rgba(0,0,0,0.05)' } },
-      y1: { type: 'linear' as const, display: true, position: 'right' as const, grid: { drawOnChartArea: false }, min: 0, max: 100, ticks: { callback: function(value: any) { return value + '%' } } },
+      y1: { type: 'linear' as const, display: true, position: 'right' as const, grid: { drawOnChartArea: false }, min: 0, max: 100, ticks: { callback: function(value: number | string) { return value + '%' } } },
     },
   };
 
-  // -- 3. DOUGHNUT CHART: Rejection Breakdown (Mocked Data based on typical drops) --
-  // We use topOfferDropReasons if available, else fallback to mock data
   const dropLabels = topOfferDropReasons?.slice(0, 4).map(r => r.reason) || ['Salary', 'Location', 'Better Offer', 'Other'];
   const dropData = topOfferDropReasons?.slice(0, 4).map(r => r.count) || [45, 25, 20, 10];
 
@@ -772,8 +754,6 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
 
   return (
     <div className="tab-content" style={{ animation: 'fadeInUp 0.5s ease-out' }}>
-
-      {/* Hero Metrics Row */}
       <SectionLabel>Analytics Overview</SectionLabel>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem', marginBottom: '2rem' }}>
         <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem' }}>
@@ -786,16 +766,15 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
         <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem' }}>
           <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(46, 128, 112, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--teal-500)' }}>🎯</div>
           <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Successful Hires</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>{totalJoined.toLocaleString()}</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Joined</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--teal-500)', lineHeight: 1.2 }}>{totalJoined.toLocaleString()}</div>
           </div>
         </div>
-        <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', right: -20, top: -20, width: 100, height: 100, background: 'radial-gradient(circle, rgba(212,168,67,0.15) 0%, transparent 70%)' }} />
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(212, 168, 67, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--gold)' }}>⚡</div>
+        <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem' }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(212, 168, 67, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--gold)' }}>📊</div>
           <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Avg Conversion</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>{overallConversion}%</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Conversion</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--gold-dark)', lineHeight: 1.2 }}>{overallConversion}%</div>
           </div>
         </div>
       </div>
@@ -836,27 +815,25 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
                 </tr>
               </thead>
               <tbody>
-                {recruiterPerformance.sort((a,b) => b.joined - a.joined).slice(0, 5).map((r, i) => {
-                  return (
-                    <tr key={r.recruiter} className="data-row" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
-                      <td style={{ padding: '0.75rem 1rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {i === 0 && <span style={{ color: 'var(--gold)' }}>👑</span>}
-                        {r.recruiter}
-                      </td>
-                      <td style={{ padding: '0.75rem 1rem' }}>{r.applications.toLocaleString()}</td>
-                      <td style={{ padding: '0.75rem 1rem' }}>{r.offers.toLocaleString()}</td>
-                      <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: 'var(--teal-600)' }}>{r.joined}</td>
-                      <td style={{ padding: '0.75rem 1rem' }}>
-                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                           <div style={{ width: 40, height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
-                             <div style={{ height: '100%', width: `${Math.min(r.convRate * 2, 100)}%`, background: 'var(--amber-500)', borderRadius: 2 }} />
-                           </div>
-                           <span>{r.convRate.toFixed(1)}%</span>
+                {recruiterPerformance.sort((a,b) => b.joined - a.joined).slice(0, 5).map((r, i) => (
+                  <tr key={r.recruiter} className="data-row" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
+                    <td style={{ padding: '0.75rem 1rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {i === 0 && <span style={{ color: 'var(--gold)' }}>👑</span>}
+                      {r.recruiter}
+                    </td>
+                    <td style={{ padding: '0.75rem 1rem' }}>{r.applications.toLocaleString()}</td>
+                    <td style={{ padding: '0.75rem 1rem' }}>{r.offers.toLocaleString()}</td>
+                    <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: 'var(--teal-600)' }}>{r.joined}</td>
+                    <td style={{ padding: '0.75rem 1rem' }}>
+                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                         <div style={{ width: 40, height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+                           <div style={{ height: '100%', width: `${Math.min(r.convRate * 2, 100)}%`, background: 'var(--amber-500)', borderRadius: 2 }} />
                          </div>
-                      </td>
-                    </tr>
-                  )
-                })}
+                         <span>{r.convRate.toFixed(1)}%</span>
+                       </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -872,7 +849,7 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
 
 function PositionsTab({ data }: { data: DashboardData }) {
   const { topPositions } = data
-  const maxTopApps = topPositions.length > 0 ? topPositions[0].apps : 1
+  const maxTopApps = topPositions.length > 0 ? topPositions[0]!.apps : 1
   const top7 = topPositions.slice(0, 7)
   const bottom7 = topPositions.slice(7, 14)
 
@@ -951,7 +928,7 @@ function GlossaryTab() {
 //  MAIN DASHBOARD COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
-function Dashboard() {
+export default function App() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem(AUTH_KEY) === '1')
   const [showConfig, setShowConfig] = useState(true)
   const [data, setData] = useState<DashboardData | null>(null)
@@ -968,7 +945,7 @@ function Dashboard() {
       const params = new URLSearchParams()
       if (applicantsUrl !== DEFAULT_APPLICANTS) params.set('applicants', applicantsUrl)
       if (vacanciesUrl !== DEFAULT_VACANCIES) params.set('vacancies', vacanciesUrl)
-      const url = `/.netlify/functions/dashboard-data${params.toString() ? '?' + params.toString() : ''}`
+      const url = `/api/dashboard-data${params.toString() ? '?' + params.toString() : ''}`
       const res = await fetch(url)
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }))
@@ -990,7 +967,6 @@ function Dashboard() {
     fetchData(a, v)
   }
 
-  // Auto-refresh every 5 minutes
   useEffect(() => {
     if (!lastUrls) return
     const id = setInterval(() => fetchData(lastUrls.a, lastUrls.v), 5 * 60 * 1000)
