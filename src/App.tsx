@@ -802,6 +802,39 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
         </Panel>
       </div>
 
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+        <Panel>
+          <PanelTitle title="Top Rejection Reasons" badge="From 'Reason for Rejection' column" />
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {data.topRejectionReasons.length > 0 ? (
+              data.topRejectionReasons.map((r, i) => (
+                <div key={i} className="reason-item" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 0' }}>
+                  <div style={{ fontWeight: 700, color: 'var(--brick-500)', fontSize: '1rem', width: 24, textAlign: 'center', flexShrink: 0 }}>{r.count}</div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{r.reason}</div>
+                </div>
+              ))
+            ) : (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No rejection reasons detected</div>
+            )}
+          </div>
+        </Panel>
+        <Panel>
+          <PanelTitle title="Top Offer Decline Reasons" badge="Candidates who dropped offers" />
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {data.topOfferDropReasons.length > 0 ? (
+              data.topOfferDropReasons.map((r, i) => (
+                <div key={i} className="reason-item" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 0' }}>
+                  <div style={{ fontWeight: 700, color: 'var(--brick-500)', fontSize: '1rem', width: 24, textAlign: 'center', flexShrink: 0 }}>{r.count}</div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{r.reason}</div>
+                </div>
+              ))
+            ) : (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No offer decline reasons detected</div>
+            )}
+          </div>
+        </Panel>
+      </div>
+
       <SectionLabel>Recruiter Intelligence</SectionLabel>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem' }}>
         <Panel>
