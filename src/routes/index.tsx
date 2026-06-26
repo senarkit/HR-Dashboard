@@ -700,6 +700,7 @@ function PerformanceTab({ data }: { data: DashboardData }) {
 
 function AnalyticsTab({ data }: { data: DashboardData }) {
   const { kpis, quarterlyTrend, recruiterPerformance } = data
+  const [selectedBU, setSelectedBU] = useState<string>('All')
 
   const chartData = {
     labels: quarterlyTrend.map(q => q.quarter),
@@ -902,25 +903,51 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
       <Panel>
         <PanelTitle title="Hiring Timeline per Position per Business Unit" badge="Job Req → Hire (Average Days)" />
 
-        {/* Stage legend */}
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-          {STAGE_COLORS.map(s => (
-            <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.65rem', color: 'var(--text-muted)', background: 'var(--warm-50)', border: '1px solid var(--border)', borderRadius: 20, padding: '3px 9px' }}>
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, display: 'inline-block', flexShrink: 0 }} />
-              {s.label}
-            </div>
-          ))}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+          {/* Stage legend */}
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {STAGE_COLORS.map(s => (
+              <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.65rem', color: 'var(--text-muted)', background: 'var(--warm-50)', border: '1px solid var(--border)', borderRadius: 20, padding: '3px 9px' }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, display: 'inline-block', flexShrink: 0 }} />
+                {s.label}
+              </div>
+            ))}
+          </div>
+
+          {/* BU Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--navy-800)' }}>Filter by BU:</label>
+            <select
+              value={selectedBU}
+              onChange={e => setSelectedBU(e.target.value)}
+              style={{
+                fontSize: '0.75rem',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                border: '1px solid var(--border)',
+                background: 'white',
+                color: 'var(--text-primary)',
+                outline: 'none',
+              }}
+            >
+              <option value="All">All Business Units</option>
+              {Array.from(new Set(timeline.map(t => t.bu))).sort().map(bu => (
+                <option key={bu} value={bu}>{bu}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {!timeline || timeline.length === 0 ? (
           <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>No hiring timeline data detected</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: 860 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: 900 }}>
               <thead>
                 <tr style={{ background: 'var(--warm-50)', borderRadius: 8 }}>
                   <th style={{ padding: '0.65rem 0.75rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '2px solid var(--border)', borderRadius: '8px 0 0 0' }}>Business Unit</th>
                   <th style={{ padding: '0.65rem 0.75rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '2px solid var(--border)' }}>Position</th>
+                  <th style={{ padding: '0.65rem 0.75rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '2px solid var(--border)', textAlign: 'center' }}>Candidates</th>
                   <th style={{ padding: '0.65rem 0.5rem', fontSize: '0.65rem', color: '#3B5ED6', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', borderBottom: '2px solid var(--border)' }}>Req→App</th>
                   <th style={{ padding: '0.65rem 0.5rem', fontSize: '0.65rem', color: '#64748B', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', borderBottom: '2px solid var(--border)' }}>App→Screen</th>
                   <th style={{ padding: '0.65rem 0.5rem', fontSize: '0.65rem', color: '#D97706', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', borderBottom: '2px solid var(--border)' }}>Screen→R1</th>
@@ -932,7 +959,7 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
                 </tr>
               </thead>
               <tbody>
-                {timeline.map((t, idx) => {
+                {timeline.filter(t => selectedBU === 'All' || t.bu === selectedBU).map((t, idx) => {
                   const s = t.stages
                   const tot = Math.max(t.totalDays, 1)
                   const isEven = idx % 2 === 0
@@ -961,6 +988,9 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
                             <div key={si} style={{ width: `${(seg.val / tot) * 100}%`, background: seg.color, minWidth: seg.val > 0 ? 2 : 0 }} title={`${STAGE_COLORS[si]?.label}: ${seg.val}d`} />
                           ))}
                         </div>
+                      </td>
+                      <td style={{ padding: '0.75rem 0.75rem', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--navy-800)' }}>{t.candidateCount || 0}</div>
                       </td>
                       {/* Stage day pills */}
                       {[
