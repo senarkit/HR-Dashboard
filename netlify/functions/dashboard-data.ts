@@ -136,6 +136,7 @@ interface DashboardData {
     hiringRate: number
     offersExtended: number
     offerDropRate: number
+    offerAcceptanceRate: number
     candidateDrops: number
     screenRejects: number
     totalVacancies: number
@@ -483,8 +484,18 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
     .map(([bu, days]) => ({ bu, avgDays: Math.round(days.reduce((a, b) => a + b, 0) / days.length) }))
     .sort((a, b) => b.avgDays - a.avgDays)
 
+  // Build hiring timeline — include any position with known BU or known position name
+  // Falls back to synthetic data derived from overall avg time-to-fill when no date columns exist
+  const avgFillFallback = timeToFillDays.length > 0
+    ? Math.round(timeToFillDays.reduce((a, b) => a + b, 0) / timeToFillDays.length)
+    : 45 // industry-average fallback
+
   const hiringTimeline = Object.entries(timelineMap)
-    .filter(([key]) => !key.includes('Unknown'))
+    .filter(([key]) => {
+      const [bu, position] = key.split('|')
+      // Only exclude rows where BOTH bu AND position are unknown
+      return !(bu === 'Unknown' && position === 'Unknown')
+    })
     .map(([key, items]) => {
       const [bu, position] = key.split('|')
       if (items.length > 0) {
@@ -504,16 +515,19 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
           stages: { reqToApp, appToScreen, screenToR1, r1ToR2, r2ToR3, r3ToOffer, offerToHire },
         }
       } else {
+        // No date data — derive proportional estimates from the overall avg fill time
         let hash = 0
         for (let i = 0; i < key.length; i++) hash = (hash << 5) - hash + key.charCodeAt(i)
         hash = Math.abs(hash)
-        const reqToApp = 7 + (hash % 6)
-        const appToScreen = 3 + ((hash >> 1) % 4)
-        const screenToR1 = 5 + ((hash >> 2) % 5)
-        const r1ToR2 = 4 + ((hash >> 3) % 5)
-        const r2ToR3 = 4 + ((hash >> 4) % 4)
-        const r3ToOffer = 3 + ((hash >> 5) % 4)
-        const offerToHire = 12 + ((hash >> 6) % 10)
+        // Use avgFillFallback scaled with slight variation per position
+        const scale = avgFillFallback / 45 // normalize to industry baseline
+        const reqToApp = Math.round((7 + (hash % 6)) * scale)
+        const appToScreen = Math.round((3 + ((hash >> 1) % 4)) * scale)
+        const screenToR1 = Math.round((5 + ((hash >> 2) % 5)) * scale)
+        const r1ToR2 = Math.round((4 + ((hash >> 3) % 5)) * scale)
+        const r2ToR3 = Math.round((4 + ((hash >> 4) % 4)) * scale)
+        const r3ToOffer = Math.round((3 + ((hash >> 5) % 4)) * scale)
+        const offerToHire = Math.round((12 + ((hash >> 6) % 10)) * scale)
         const totalDays = reqToApp + appToScreen + screenToR1 + r1ToR2 + r2ToR3 + r3ToOffer + offerToHire
         return {
           bu,
