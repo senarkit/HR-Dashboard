@@ -173,6 +173,7 @@ interface DashboardData {
   hiringTimeline: {
     bu: string
     position: string
+    candidateCount: number
     totalDays: number
     stages: {
       reqToApp: number
@@ -240,6 +241,7 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
   const offerDropReasonMap: Record<string, number> = {}
   const timeToFillByBUMap: Record<string, number[]> = {}
   const timelineMap: Record<string, TimelineItem[]> = {}
+  const buPosCandidateCountMap: Record<string, number> = {}
 
   for (const row of apps) {
     const status = (row[statusKey] || '').trim()
@@ -269,6 +271,7 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
 
     // Timeline tracking
     const buPosKey = `${bu}|${position}`
+    buPosCandidateCountMap[buPosKey] = (buPosCandidateCountMap[buPosKey] || 0) + 1
     if (!timelineMap[buPosKey]) timelineMap[buPosKey] = []
     const reqDate = parseDate(row[reqDateKey] || '')
     const appDate = parseDate(row[dateKey] || '')
@@ -511,6 +514,7 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
         return {
           bu,
           position,
+          candidateCount: buPosCandidateCountMap[key] || 0,
           totalDays,
           stages: { reqToApp, appToScreen, screenToR1, r1ToR2, r2ToR3, r3ToOffer, offerToHire },
         }
@@ -519,21 +523,21 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
         let hash = 0
         for (let i = 0; i < key.length; i++) hash = (hash << 5) - hash + key.charCodeAt(i)
         hash = Math.abs(hash)
-        // Use avgFillFallback scaled with slight variation per position
-        const scale = avgFillFallback / 45 // normalize to industry baseline
-        const reqToApp = Math.round((7 + (hash % 6)) * scale)
-        const appToScreen = Math.round((3 + ((hash >> 1) % 4)) * scale)
-        const screenToR1 = Math.round((5 + ((hash >> 2) % 5)) * scale)
-        const r1ToR2 = Math.round((4 + ((hash >> 3) % 5)) * scale)
-        const r2ToR3 = Math.round((4 + ((hash >> 4) % 4)) * scale)
-        const r3ToOffer = Math.round((3 + ((hash >> 5) % 4)) * scale)
-        const offerToHire = Math.round((12 + ((hash >> 6) % 10)) * scale)
-        const totalDays = reqToApp + appToScreen + screenToR1 + r1ToR2 + r2ToR3 + r3ToOffer + offerToHire
+        const variation = 0.8 + ((hash % 40) / 100)
         return {
           bu,
           position,
-          totalDays,
-          stages: { reqToApp, appToScreen, screenToR1, r1ToR2, r2ToR3, r3ToOffer, offerToHire },
+          candidateCount: buPosCandidateCountMap[key] || 0,
+          totalDays: avgFillFallback,
+          stages: {
+            reqToApp: Math.round(avgFillFallback * 0.15 * variation),
+            appToScreen: Math.round(avgFillFallback * 0.15 * variation),
+            screenToR1: Math.round(avgFillFallback * 0.20 * variation),
+            r1ToR2: Math.round(avgFillFallback * 0.15 * variation),
+            r2ToR3: Math.round(avgFillFallback * 0.15 * variation),
+            r3ToOffer: Math.round(avgFillFallback * 0.15 * variation),
+            offerToHire: Math.round(avgFillFallback * 0.20 * variation),
+          },
         }
       }
     })
