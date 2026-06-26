@@ -45,6 +45,20 @@ interface DashboardData {
   recruiterPerformance: { recruiter: string; applications: number; offers: number; joined: number; convRate: number; offerDropRate: number }[]
   topPositions: { position: string; apps: number; joined: number }[]
   vacancyByBU: { bu: string; total: number; filled: number; onHold: number; inProcess: number }[]
+  hiringTimeline: {
+    bu: string
+    position: string
+    totalDays: number
+    stages: {
+      reqToApp: number
+      appToScreen: number
+      screenToR1: number
+      r1ToR2: number
+      r2ToR3: number
+      r3ToOffer: number
+      offerToHire: number
+    }
+  }[]
   lastUpdated: string
 }
 
@@ -724,10 +738,10 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
         <Panel>
           <PanelTitle title="Quarterly Applicant vs. Joining Trend" />
-          <div style={{ position: 'relative', height: 260 }}>
+          <div style={{ position: 'relative', height: 160 }}>
             <Bar data={chartData} options={chartOptions} />
           </div>
-          <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.75rem', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem', justifyContent: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
               <span style={{ width: 10, height: 10, borderRadius: 3, background: 'rgba(15,27,45,0.6)', display: 'inline-block' }} /> Applicants
             </div>
@@ -786,6 +800,68 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
           )}
         </Panel>
       </div>
+
+      <div style={{ marginTop: '1.5rem' }}>
+        <Panel style={{ gridColumn: '1 / -1' }}>
+          <PanelTitle title="Hiring Timeline per Position per Business Unit" badge="Job Req → Hire (Average Days)" />
+          {!data.hiringTimeline || data.hiringTimeline.length === 0 ? (
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>No hiring timeline data detected</div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: 900 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.06em' }}>
+                    <th style={{ padding: '0.75rem 0.5rem' }}>BUSINESS UNIT</th>
+                    <th style={{ padding: '0.75rem 0.5rem' }}>POSITION</th>
+                    <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>REQ → APP</th>
+                    <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>APP → SCREEN</th>
+                    <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>SCREEN → R1</th>
+                    <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>R1 → R2</th>
+                    <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>R2 → R3</th>
+                    <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>R3 → OFFER</th>
+                    <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>OFFER → HIRE</th>
+                    <th style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>TOTAL TIME</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.hiringTimeline.map((t, idx) => {
+                    const s = t.stages
+                    const tot = Math.max(t.totalDays, 1)
+                    return (
+                      <tr key={`${t.bu}-${t.position}-${idx}`} className="data-row" style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '0.85rem 0.5rem', fontSize: '0.78rem', fontWeight: 600, color: 'var(--navy-800)' }}>{t.bu}</td>
+                        <td style={{ padding: '0.85rem 0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                          {t.position}
+                          <div style={{ display: 'flex', width: '100%', height: 4, borderRadius: 2, background: 'var(--warm-50)', overflow: 'hidden', marginTop: 6, gap: 1 }}>
+                            <div style={{ width: `${(s.reqToApp/tot)*100}%`, background: 'var(--navy-500)' }} title={`Req → App: ${s.reqToApp}d`} />
+                            <div style={{ width: `${(s.appToScreen/tot)*100}%`, background: 'var(--slate-400)' }} title={`App → Screen: ${s.appToScreen}d`} />
+                            <div style={{ width: `${(s.screenToR1/tot)*100}%`, background: 'var(--warm-400)' }} title={`Screen → R1: ${s.screenToR1}d`} />
+                            <div style={{ width: `${(s.r1ToR2/tot)*100}%`, background: 'var(--amber-400)' }} title={`R1 → R2: ${s.r1ToR2}d`} />
+                            <div style={{ width: `${(s.r2ToR3/tot)*100}%`, background: 'var(--gold)' }} title={`R2 → R3: ${s.r2ToR3}d`} />
+                            <div style={{ width: `${(s.r3ToOffer/tot)*100}%`, background: 'var(--teal-400)' }} title={`R3 → Offer: ${s.r3ToOffer}d`} />
+                            <div style={{ width: `${(s.offerToHire/tot)*100}%`, background: 'var(--brick-400)' }} title={`Offer → Hire: ${s.offerToHire}d`} />
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.85rem 0.5rem', textAlign: 'center', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>{s.reqToApp}d</td>
+                        <td style={{ padding: '0.85rem 0.5rem', textAlign: 'center', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>{s.appToScreen}d</td>
+                        <td style={{ padding: '0.85rem 0.5rem', textAlign: 'center', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>{s.screenToR1}d</td>
+                        <td style={{ padding: '0.85rem 0.5rem', textAlign: 'center', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>{s.r1ToR2}d</td>
+                        <td style={{ padding: '0.85rem 0.5rem', textAlign: 'center', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>{s.r2ToR3}d</td>
+                        <td style={{ padding: '0.85rem 0.5rem', textAlign: 'center', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>{s.r3ToOffer}d</td>
+                        <td style={{ padding: '0.85rem 0.5rem', textAlign: 'center', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>{s.offerToHire}d</td>
+                        <td style={{ padding: '0.85rem 0.5rem', textAlign: 'right', fontSize: '0.82rem', fontWeight: 700, color: t.totalDays <= 45 ? 'var(--teal-500)' : t.totalDays <= 60 ? 'var(--amber-600)' : 'var(--brick-500)' }}>
+                          {t.totalDays} Days
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
+      </div>
+
       <div style={{ marginTop: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
         <Panel>
           <PanelTitle title="Top Rejection Reasons" badge="From 'Reason for Rejection' column" />
