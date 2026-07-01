@@ -524,6 +524,7 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
     vacancyByBU,
     topOfferDropReasons,
     timeToFillByBU,
+    hiringTimelineByBU,
     lastUpdated: new Date().toISOString(),
   }
 }
