@@ -45,6 +45,19 @@ interface DashboardData {
   recruiterPerformance: { recruiter: string; applications: number; offers: number; joined: number; convRate: number; offerDropRate: number }[]
   topPositions: { position: string; apps: number; joined: number }[]
   vacancyByBU: { bu: string; total: number; filled: number; onHold: number; inProcess: number }[]
+  hiringTimelineByBU: {
+    bu: string
+    totalApplicants: number
+    totalJoined: number
+    positions: {
+      position: string
+      total: number
+      joined: number
+      offered: number
+      dropped: number
+      avgDays: number | null
+    }[]
+  }[]
   lastUpdated: string
 }
 
@@ -818,6 +831,237 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
             </div>
           )}
         </Panel>
+      </div>
+
+      {/* ─── Hiring Timeline per Position per BU ─── */}
+      {data.hiringTimelineByBU && data.hiringTimelineByBU.length > 0 && (
+        <HiringTimelineByBU data={data} />
+      )}
+    </div>
+  )
+}
+
+// ─── Hiring Timeline by BU (used inside AnalyticsTab) ────────
+
+function HiringTimelineByBU({ data }: { data: DashboardData }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const timeline = data.hiringTimelineByBU || []
+  const globalMax = Math.max(...timeline.flatMap(bu => bu.positions.map(p => p.total)), 1)
+
+  const toggleBU = (bu: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(bu)) next.delete(bu)
+      else next.add(bu)
+      return next
+    })
+  }
+
+  // Split BUs into two columns
+  const mid = Math.ceil(timeline.length / 2)
+  const columns = [timeline.slice(0, mid), timeline.slice(mid)]
+
+  return (
+    <div style={{ marginTop: '1.5rem' }}>
+      <SectionLabel>Hiring Timeline per Position per Business Unit</SectionLabel>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'start' }}>
+        {columns.map((col, ci) => (
+          <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {col.map(bu => {
+              const isOpen = expanded.has(bu.bu)
+              const rate = bu.totalApplicants > 0 ? (bu.totalJoined / bu.totalApplicants) * 100 : 0
+              return (
+                <div key={bu.bu} style={{
+                  border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden',
+                  background: 'white', transition: 'box-shadow 0.2s',
+                  boxShadow: isOpen ? '0 4px 16px rgba(0,0,0,0.06)' : 'none',
+                }}>
+                  {/* BU Header — clickable */}
+                  <div
+                    onClick={() => toggleBU(bu.bu)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '0.75rem',
+                      padding: '0.7rem 1rem', cursor: 'pointer',
+                      background: isOpen
+                        ? 'linear-gradient(135deg, var(--navy-800) 0%, var(--navy-700) 100%)'
+                        : 'var(--warm-50)',
+                      transition: 'background 0.25s',
+                      userSelect: 'none',
+                    }}
+                  >
+                    {/* Chevron */}
+                    <span style={{
+                      fontSize: '0.65rem', color: isOpen ? 'var(--gold)' : 'var(--text-muted)',
+                      transition: 'transform 0.25s', display: 'inline-block',
+                      transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                    }}>▶</span>
+
+                    {/* BU Name */}
+                    <span style={{
+                      flex: 1, fontSize: '0.8rem', fontWeight: 600,
+                      color: isOpen ? '#FFFFFF' : 'var(--text-primary)',
+                      fontFamily: "'Playfair Display', serif",
+                      letterSpacing: '-0.01em',
+                    }}>{bu.bu}</span>
+
+                    {/* Position count badge */}
+                    <span style={{
+                      fontSize: '0.62rem', fontWeight: 500,
+                      color: isOpen ? 'rgba(180,190,210,0.7)' : 'var(--text-muted)',
+                      background: isOpen ? 'rgba(255,255,255,0.08)' : 'var(--bg)',
+                      padding: '2px 8px', borderRadius: 10,
+                      border: `1px solid ${isOpen ? 'rgba(255,255,255,0.1)' : 'var(--border)'}`,
+                    }}>
+                      {bu.positions.length} position{bu.positions.length !== 1 ? 's' : ''}
+                    </span>
+
+                    {/* Summary stats */}
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexShrink: 0 }}>
+                      <span style={{
+                        fontSize: '0.68rem', fontWeight: 500,
+                        color: isOpen ? 'rgba(180,190,210,0.6)' : 'var(--text-muted)',
+                      }}>
+                        {bu.totalApplicants} apps
+                      </span>
+                      <span style={{
+                        fontSize: '0.68rem', fontWeight: 600,
+                        color: isOpen ? 'var(--teal-300)' : 'var(--teal-500)',
+                      }}>
+                        {bu.totalJoined} joined
+                      </span>
+                      <span style={{
+                        fontSize: '0.62rem', fontWeight: 600, padding: '2px 8px', borderRadius: 10,
+                        ...( rate >= 10
+                          ? { background: isOpen ? 'rgba(46,128,112,0.25)' : '#EDFBF5', color: isOpen ? '#6EDCC4' : '#1A6845' }
+                          : rate >= 5
+                          ? { background: isOpen ? 'rgba(212,168,67,0.2)' : '#FEF3DC', color: isOpen ? '#F0C75E' : '#9A5D0A' }
+                          : { background: isOpen ? 'rgba(160,42,30,0.2)' : '#FDEAE8', color: isOpen ? '#E8998F' : '#9A2A1E' }
+                        ),
+                      }}>
+                        {pct(rate)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Expanded position list */}
+                  {isOpen && (
+                    <div style={{ padding: '0.5rem 0.75rem 0.65rem' }}>
+                      {/* Column headers */}
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: '0.5rem',
+                        padding: '0 0.25rem 0.35rem', marginBottom: '0.2rem',
+                        borderBottom: '1px solid var(--border)',
+                        fontSize: '0.6rem', fontWeight: 600, color: 'var(--text-muted)',
+                        textTransform: 'uppercase', letterSpacing: '0.08em',
+                      }}>
+                        <span style={{ flex: 1, minWidth: 0 }}>Position</span>
+                        <span style={{ width: 36, textAlign: 'right' }}>Apps</span>
+                        <span style={{ width: 140 }}></span>
+                        <span style={{ width: 32, textAlign: 'center' }}>✓</span>
+                        <span style={{ width: 32, textAlign: 'center' }}>↓</span>
+                        <span style={{ width: 36, textAlign: 'right' }}>Days</span>
+                      </div>
+
+                      {bu.positions.map(pos => {
+                        const barW = globalMax > 0 ? (pos.total / globalMax) * 100 : 0
+                        const joinedW = pos.total > 0 ? (pos.joined / pos.total) * 100 : 0
+                        const offeredW = pos.total > 0 ? (pos.offered / pos.total) * 100 : 0
+                        return (
+                          <div key={pos.position} className="data-row" style={{
+                            display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            padding: '0.2rem 0.25rem', borderRadius: 4, minHeight: 26,
+                          }}>
+                            {/* Position name — truncated */}
+                            <div style={{
+                              flex: 1, minWidth: 0, fontSize: '0.72rem', color: 'var(--text-secondary)',
+                              fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            }} title={pos.position}>
+                              {pos.position}
+                            </div>
+
+                            {/* Count */}
+                            <div style={{ width: 36, textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500, flexShrink: 0 }}>
+                              {pos.total}
+                            </div>
+
+                            {/* Stacked bar */}
+                            <div style={{
+                              width: 140, height: 14, background: 'var(--warm-50)', borderRadius: 3,
+                              overflow: 'hidden', position: 'relative', flexShrink: 0,
+                            }}>
+                              {/* Total bar (navy) */}
+                              <div style={{
+                                position: 'absolute', left: 0, top: 0, height: '100%',
+                                width: `${Math.max(barW, 2)}%`,
+                                background: 'rgba(15,27,45,0.12)', borderRadius: 3,
+                              }} />
+                              {/* Offered bar (amber) */}
+                              <div style={{
+                                position: 'absolute', left: 0, top: 0, height: '100%',
+                                width: `${Math.max(barW * offeredW / 100, 0)}%`,
+                                background: 'rgba(212,168,67,0.4)', borderRadius: 3,
+                              }} />
+                              {/* Joined bar (teal) */}
+                              <div style={{
+                                position: 'absolute', left: 0, top: 0, height: '100%',
+                                width: `${Math.max(barW * joinedW / 100, 0)}%`,
+                                background: 'var(--teal-400)', borderRadius: 3,
+                                transition: 'width 0.5s ease',
+                              }} />
+                            </div>
+
+                            {/* Joined count */}
+                            <div style={{
+                              width: 32, textAlign: 'center', fontSize: '0.68rem', fontWeight: 600,
+                              color: pos.joined > 0 ? 'var(--teal-500)' : 'var(--text-muted)', flexShrink: 0,
+                            }}>
+                              {pos.joined}
+                            </div>
+
+                            {/* Dropped count */}
+                            <div style={{
+                              width: 32, textAlign: 'center', fontSize: '0.68rem', fontWeight: 500,
+                              color: pos.dropped > 0 ? 'var(--brick-400)' : 'var(--text-muted)', flexShrink: 0,
+                            }}>
+                              {pos.dropped}
+                            </div>
+
+                            {/* Avg days */}
+                            <div style={{
+                              width: 36, textAlign: 'right', fontSize: '0.66rem', fontWeight: 500, flexShrink: 0,
+                              color: pos.avgDays !== null
+                                ? pos.avgDays <= 30 ? 'var(--teal-500)' : pos.avgDays <= 60 ? 'var(--amber-600)' : 'var(--brick-500)'
+                                : 'var(--text-muted)',
+                            }}>
+                              {pos.avgDays !== null ? `${pos.avgDays}d` : '–'}
+                            </div>
+                          </div>
+                        )
+                      })}
+
+                      {/* Legend */}
+                      <div style={{
+                        display: 'flex', gap: '1rem', justifyContent: 'flex-end',
+                        marginTop: '0.4rem', paddingTop: '0.3rem', borderTop: '1px solid var(--border)',
+                      }}>
+                        {[
+                          { color: 'rgba(15,27,45,0.12)', label: 'Applied' },
+                          { color: 'rgba(212,168,67,0.4)', label: 'Offered' },
+                          { color: 'var(--teal-400)', label: 'Joined' },
+                        ].map(l => (
+                          <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.6rem', color: 'var(--text-muted)' }}>
+                            <span style={{ width: 8, height: 8, borderRadius: 2, background: l.color, display: 'inline-block' }} />
+                            {l.label}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        ))}
       </div>
     </div>
   )

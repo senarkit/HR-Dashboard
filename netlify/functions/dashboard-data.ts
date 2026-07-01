@@ -169,6 +169,19 @@ interface DashboardData {
   vacancyByBU: { bu: string; total: number; filled: number; onHold: number; inProcess: number }[]
   topOfferDropReasons: { reason: string; count: number }[]
   timeToFillByBU: { bu: string; avgDays: number }[]
+  hiringTimelineByBU: {
+    bu: string
+    totalApplicants: number
+    totalJoined: number
+    positions: {
+      position: string
+      total: number
+      joined: number
+      offered: number
+      dropped: number
+      avgDays: number | null
+    }[]
+  }[]
   lastUpdated: string
 }
 
@@ -207,6 +220,7 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
   const rejectReasonMap: Record<string, number> = {}
   const offerDropReasonMap: Record<string, number> = {}
   const timeToFillByBUMap: Record<string, number[]> = {}
+  const buPositionMap: Record<string, Record<string, { total: number; joined: number; offered: number; dropped: number; days: number[] }>> = {}
 
   for (const row of apps) {
     const status = (row[statusKey] || '').trim()
@@ -233,6 +247,11 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
     // Position tracking
     if (!posMap[position]) posMap[position] = { apps: 0, joined: 0 }
     posMap[position].apps++
+
+    // BU → Position tracking (for hiring timeline by BU)
+    if (!buPositionMap[bu]) buPositionMap[bu] = {}
+    if (!buPositionMap[bu][position]) buPositionMap[bu][position] = { total: 0, joined: 0, offered: 0, dropped: 0, days: [] }
+    buPositionMap[bu][position].total++
 
     // Recruiter tracking
     if (!recruiterMap[recruiter]) recruiterMap[recruiter] = { apps: 0, offers: 0, joined: 0, offerDrops: 0 }
@@ -275,6 +294,8 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
       recruiterMap[recruiter].joined++
       recruiterMap[recruiter].offers++  // FIX: joined candidates passed offer stage
       quarterMap[quarter].joined++
+      buPositionMap[bu][position].joined++
+      buPositionMap[bu][position].offered++
 
       // Compute time-to-fill for this joined candidate
       const appDate = parseDate(dateStr)
@@ -286,17 +307,22 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
           timeToFillDays.push(diffDays)
           if (!timeToFillByBUMap[bu]) timeToFillByBUMap[bu] = []
           timeToFillByBUMap[bu].push(diffDays)
+          buPositionMap[bu][position].days.push(diffDays)
         }
       }
     } else if (isOfferDrop) {
       offerDrops++; offered++; shortlisted++; interviewed++
       recruiterMap[recruiter].offers++
       recruiterMap[recruiter].offerDrops++
+      buPositionMap[bu][position].offered++
+      buPositionMap[bu][position].dropped++
     } else if (isOffer) {
       offered++; shortlisted++; interviewed++
       recruiterMap[recruiter].offers++
+      buPositionMap[bu][position].offered++
     } else if (isDrop) {
       candidateDrops++
+      buPositionMap[bu][position].dropped++
       if (isShort) shortlisted++
       if (isInterview) interviewed++
     } else if (isR1) {
@@ -426,6 +452,30 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
     .map(([bu, days]) => ({ bu, avgDays: Math.round(days.reduce((a, b) => a + b, 0) / days.length) }))
     .sort((a, b) => b.avgDays - a.avgDays)
 
+  // Hiring timeline grouped by BU
+  const hiringTimelineByBU = Object.entries(buPositionMap)
+    .filter(([bu]) => bu !== 'Unknown')
+    .map(([bu, positions]) => {
+      const posArr = Object.entries(positions)
+        .filter(([pos]) => pos !== 'Unknown')
+        .map(([position, d]) => ({
+          position,
+          total: d.total,
+          joined: d.joined,
+          offered: d.offered,
+          dropped: d.dropped,
+          avgDays: d.days.length > 0 ? Math.round(d.days.reduce((a, b) => a + b, 0) / d.days.length) : null,
+        }))
+        .sort((a, b) => b.total - a.total)
+      return {
+        bu,
+        totalApplicants: posArr.reduce((s, p) => s + p.total, 0),
+        totalJoined: posArr.reduce((s, p) => s + p.joined, 0),
+        positions: posArr,
+      }
+    })
+    .sort((a, b) => b.totalApplicants - a.totalApplicants)
+
   return {
     kpis: {
       totalApplicants,
@@ -454,6 +504,7 @@ function computeDashboard(applicants: Record<string, string>[], vacancies: Recor
     vacancyByBU,
     topOfferDropReasons,
     timeToFillByBU,
+    hiringTimelineByBU,
     lastUpdated: new Date().toISOString(),
   }
 }
