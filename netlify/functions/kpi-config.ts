@@ -124,6 +124,24 @@ export const COLUMN_CANDIDATES = {
 
   /** Date the candidate joined (for time-to-fill calculation) */
   joiningDate: ['hired date', 'joining date', 'date of joining', 'doj', 'join date', 'onboarding date'],
+
+  /** Job requisition start date */
+  requisitionDate: ['requisition date', 'job requisition date', 'req date', 'job req date', 'requisition start', 'job requisition'],
+
+  /** Screening completion date */
+  screeningDate: ['screening date', 'screen date', 'screening pass date', 'profile shared date', 'screened date'],
+
+  /** Round 1 interview date */
+  r1Date: ['1st round date', 'r1 date', 'round 1 date', 'l1 date', 'interview 1 date', 'first round date'],
+
+  /** Round 2 interview date */
+  r2Date: ['2nd round date', 'r2 date', 'round 2 date', 'l2 date', 'interview 2 date', 'second round date'],
+
+  /** Round 3 interview date */
+  r3Date: ['3rd round date', 'r3 date', 'round 3 date', 'l3 date', 'interview 3 date', 'third round date'],
+
+  /** Offer extension date */
+  offerDate: ['offer date', 'offer extended date', 'date of offer', 'offered date'],
 }
 
 /** Column candidates for the Vacancies sheet */
