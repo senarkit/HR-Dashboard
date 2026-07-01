@@ -701,6 +701,7 @@ function PerformanceTab({ data }: { data: DashboardData }) {
 function AnalyticsTab({ data }: { data: DashboardData }) {
   const { kpis, quarterlyTrend, recruiterPerformance } = data
   const [selectedBU, setSelectedBU] = useState<string>('All')
+  const [searchPos, setSearchPos] = useState<string>('')
 
   const chartData = {
     labels: quarterlyTrend.map(q => q.quarter),
@@ -914,27 +915,55 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
             ))}
           </div>
 
-          {/* BU Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--navy-800)' }}>Filter by BU:</label>
-            <select
-              value={selectedBU}
-              onChange={e => setSelectedBU(e.target.value)}
-              style={{
-                fontSize: '0.75rem',
-                padding: '4px 8px',
-                borderRadius: '6px',
-                border: '1px solid var(--border)',
-                background: 'white',
-                color: 'var(--text-primary)',
-                outline: 'none',
-              }}
-            >
-              <option value="All">All Business Units</option>
-              {Array.from(new Set(timeline.map(t => t.bu))).sort().map(bu => (
-                <option key={bu} value={bu}>{bu}</option>
-              ))}
-            </select>
+          {/* Filters */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--navy-800)' }}>Filter by BU:</label>
+              <select
+                value={selectedBU}
+                onChange={e => setSelectedBU(e.target.value)}
+                style={{
+                  fontSize: '0.75rem',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border)',
+                  background: 'white',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              >
+                <option value="All">All Business Units</option>
+                {Array.from(new Set(timeline.map(t => t.bu))).sort().map(bu => (
+                  <option key={bu} value={bu}>{bu}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--navy-800)' }}>Position:</label>
+              <input
+                type="text"
+                list="position-suggestions"
+                value={searchPos}
+                onChange={e => setSearchPos(e.target.value)}
+                placeholder="Search position..."
+                style={{
+                  fontSize: '0.75rem',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border)',
+                  background: 'white',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                  width: '180px',
+                }}
+              />
+              <datalist id="position-suggestions">
+                {Array.from(new Set(timeline.map(t => t.position))).sort().map(pos => (
+                  <option key={pos} value={pos} />
+                ))}
+              </datalist>
+            </div>
           </div>
         </div>
 
@@ -959,7 +988,10 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
                 </tr>
               </thead>
               <tbody>
-                {timeline.filter(t => selectedBU === 'All' || t.bu === selectedBU).map((t, idx) => {
+                {timeline
+                  .filter(t => selectedBU === 'All' || t.bu === selectedBU)
+                  .filter(t => searchPos.trim() === '' || t.position.toLowerCase().includes(searchPos.toLowerCase()))
+                  .map((t, idx) => {
                   const s = t.stages
                   const tot = Math.max(t.totalDays, 1)
                   const isEven = idx % 2 === 0
