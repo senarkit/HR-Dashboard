@@ -45,6 +45,22 @@ interface DashboardData {
   recruiterPerformance: { recruiter: string; applications: number; offers: number; joined: number; convRate: number; offerDropRate: number }[]
   topPositions: { position: string; apps: number; joined: number }[]
   vacancyByBU: { bu: string; total: number; filled: number; onHold: number; inProcess: number }[]
+  topOfferDropReasons: { reason: string; count: number }[]
+  timeToFillByBU: { bu: string; avgDays: number }[]
+  hiringTimeline: {
+    bu: string
+    position: string
+    totalDays: number
+    stages: {
+      reqToApp: number
+      appToScreen: number
+      screenToR1: number
+      r1ToR2: number
+      r2ToR3: number
+      r3ToOffer: number
+      offerToHire: number
+    }
+  }[]
   lastUpdated: string
 }
 
@@ -684,6 +700,8 @@ function PerformanceTab({ data }: { data: DashboardData }) {
 
 function AnalyticsTab({ data }: { data: DashboardData }) {
   const { kpis, quarterlyTrend, recruiterPerformance } = data
+  const [selectedBU, setSelectedBU] = useState<string>('All')
+  const [searchPos, setSearchPos] = useState<string>('')
 
   const chartData = {
     labels: quarterlyTrend.map(q => q.quarter),
@@ -713,27 +731,122 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
       tooltip: { callbacks: { label: (ctx: { dataset: { label: string }; parsed: { y: number } }) => ` ${ctx.dataset.label}: ${ctx.parsed.y}` } },
     },
     scales: {
-      x: { grid: { display: false }, ticks: { color: '#8E8E9E', font: { size: 12, family: 'Inter' } as const } },
-      y: { grid: { color: 'rgba(200,189,179,0.25)', lineWidth: 0.5 }, ticks: { color: '#8E8E9E', font: { size: 11, family: 'Inter' } as const }, border: { display: false } },
+      x: { grid: { display: false }, ticks: { color: '#8E8E9E', font: { size: 11, family: 'Inter' } as const } },
+      y: { grid: { color: 'rgba(200,189,179,0.25)', lineWidth: 0.5 }, ticks: { color: '#8E8E9E', font: { size: 10, family: 'Inter' } as const }, border: { display: false } },
     },
   }
+
+  // Compute analytics metrics
+  const timeline = data.hiringTimeline || []
+  const avgTotalDays = timeline.length > 0
+    ? Math.round(timeline.reduce((a, b) => a + b.totalDays, 0) / timeline.length)
+    : null
+  const fastestBU = timeline.length > 0
+    ? [...timeline].sort((a, b) => a.totalDays - b.totalDays)[0]
+    : null
+  const slowestBU = timeline.length > 0
+    ? timeline[0]
+    : null
+
+  const STAGE_COLORS = [
+    { label: 'Req→App', color: '#3B5ED6' },
+    { label: 'App→Screen', color: '#64748B' },
+    { label: 'Screen→R1', color: '#D97706' },
+    { label: 'R1→R2', color: '#B45309' },
+    { label: 'R2→R3', color: '#D4A843' },
+    { label: 'R3→Offer', color: '#2E8070' },
+    { label: 'Offer→Hire', color: '#C0392B' },
+  ]
 
   return (
     <div className="tab-content">
       <SectionLabel>Quarterly Performance &amp; Recruiter Analytics</SectionLabel>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+
+      {/* ── Analytics Metric Tiles ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+        {/* Avg Pipeline Speed */}
+        <div className="kpi-card-hover" style={{
+          background: 'linear-gradient(135deg, var(--navy-800), var(--navy-700))',
+          borderRadius: 14, padding: '1.25rem', position: 'relative', overflow: 'hidden',
+          border: '1px solid rgba(212,168,67,0.15)',
+        }}>
+          <div className="header-pattern" style={{ position: 'absolute', inset: 0, opacity: 0.2, pointerEvents: 'none' }} />
+          <div style={{ position: 'relative' }}>
+            <div style={{ fontSize: '0.68rem', color: 'rgba(180,190,210,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>Avg Pipeline Speed</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '2rem', fontWeight: 700, color: 'var(--gold)', lineHeight: 1 }}>
+              {avgTotalDays !== null ? `${avgTotalDays}d` : kpis.avgTimeToFill !== null ? `${kpis.avgTimeToFill}d` : '—'}
+            </div>
+            <div style={{ fontSize: '0.7rem', color: 'rgba(180,190,210,0.5)', marginTop: '0.3rem' }}>Req to hire (avg)</div>
+          </div>
+        </div>
+
+        {/* Fastest Hire */}
+        <div className="kpi-card-hover" style={{
+          background: 'white', borderRadius: 14, padding: '1.25rem',
+          border: '1px solid var(--border)', borderLeft: '4px solid var(--teal-400)',
+        }}>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>Fastest Hire</div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.9rem', fontWeight: 700, color: 'var(--teal-500)', lineHeight: 1 }}>
+            {fastestBU ? `${fastestBU.totalDays}d` : '—'}
+          </div>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.3rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {fastestBU ? `${fastestBU.bu} · ${fastestBU.position}` : 'No date data'}
+          </div>
+        </div>
+
+        {/* Slowest Hire */}
+        <div className="kpi-card-hover" style={{
+          background: 'white', borderRadius: 14, padding: '1.25rem',
+          border: '1px solid var(--border)', borderLeft: '4px solid var(--brick-400)',
+        }}>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>Longest Pipeline</div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.9rem', fontWeight: 700, color: 'var(--brick-500)', lineHeight: 1 }}>
+            {slowestBU ? `${slowestBU.totalDays}d` : '—'}
+          </div>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.3rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {slowestBU ? `${slowestBU.bu} · ${slowestBU.position}` : 'No date data'}
+          </div>
+        </div>
+
+        {/* Positions Tracked */}
+        <div className="kpi-card-hover" style={{
+          background: 'white', borderRadius: 14, padding: '1.25rem',
+          border: '1px solid var(--border)', borderLeft: '4px solid var(--amber-400)',
+        }}>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>Positions Tracked</div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.9rem', fontWeight: 700, color: 'var(--amber-600)', lineHeight: 1 }}>
+            {timeline.length}
+          </div>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+            Across {new Set(timeline.map(t => t.bu)).size} business units
+          </div>
+        </div>
+      </div>
+
+      {/* ── Quarterly Chart + Recruiter Matrix ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
         <Panel>
           <PanelTitle title="Quarterly Applicant vs. Joining Trend" />
-          <div style={{ position: 'relative', height: 260 }}>
+          <div style={{ position: 'relative', height: 140 }}>
             <Bar data={chartData} options={chartOptions} />
           </div>
-          <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.75rem', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem', justifyContent: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
               <span style={{ width: 10, height: 10, borderRadius: 3, background: 'rgba(15,27,45,0.6)', display: 'inline-block' }} /> Applicants
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
               <span style={{ width: 10, height: 10, borderRadius: 3, background: 'rgba(46,128,112,0.85)', display: 'inline-block' }} /> Joined
             </div>
+          </div>
+          {/* Quick Q stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem', marginTop: '0.75rem' }}>
+            {quarterlyTrend.map(q => (
+              <div key={q.quarter} style={{ background: 'var(--warm-50)', borderRadius: 8, padding: '0.45rem 0.4rem', textAlign: 'center', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{q.quarter}</div>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.05rem', fontWeight: 700, color: 'var(--navy-800)', lineHeight: 1.1 }}>{num(q.applicants)}</div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--teal-500)', fontWeight: 600 }}>{num(q.joined)} joined</div>
+              </div>
+            ))}
           </div>
         </Panel>
 
@@ -786,6 +899,166 @@ function AnalyticsTab({ data }: { data: DashboardData }) {
           )}
         </Panel>
       </div>
+
+      {/* ── Hiring Timeline Table ── */}
+      <Panel>
+        <PanelTitle title="Hiring Timeline per Position per Business Unit" badge="Job Req → Hire (Average Days)" />
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+          {/* Stage legend */}
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {STAGE_COLORS.map(s => (
+              <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.65rem', color: 'var(--text-muted)', background: 'var(--warm-50)', border: '1px solid var(--border)', borderRadius: 20, padding: '3px 9px' }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, display: 'inline-block', flexShrink: 0 }} />
+                {s.label}
+              </div>
+            ))}
+          </div>
+
+          {/* Filters */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--navy-800)' }}>Filter by BU:</label>
+              <select
+                value={selectedBU}
+                onChange={e => setSelectedBU(e.target.value)}
+                style={{
+                  fontSize: '0.75rem',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border)',
+                  background: 'white',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              >
+                <option value="All">All Business Units</option>
+                {Array.from(new Set(timeline.map(t => t.bu))).sort().map(bu => (
+                  <option key={bu} value={bu}>{bu}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--navy-800)' }}>Position:</label>
+              <input
+                type="text"
+                list="position-suggestions"
+                value={searchPos}
+                onChange={e => setSearchPos(e.target.value)}
+                placeholder="Search position..."
+                style={{
+                  fontSize: '0.75rem',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border)',
+                  background: 'white',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                  width: '180px',
+                }}
+              />
+              <datalist id="position-suggestions">
+                {Array.from(new Set(timeline.map(t => t.position))).sort().map(pos => (
+                  <option key={pos} value={pos} />
+                ))}
+              </datalist>
+            </div>
+          </div>
+        </div>
+
+        {!timeline || timeline.length === 0 ? (
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>No hiring timeline data detected</div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: 900 }}>
+              <thead>
+                <tr style={{ background: 'var(--warm-50)', borderRadius: 8 }}>
+                  <th style={{ padding: '0.65rem 0.75rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '2px solid var(--border)', borderRadius: '8px 0 0 0' }}>Business Unit</th>
+                  <th style={{ padding: '0.65rem 0.75rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '2px solid var(--border)' }}>Position</th>
+                  <th style={{ padding: '0.65rem 0.75rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '2px solid var(--border)', textAlign: 'center' }}>Candidates</th>
+                  <th style={{ padding: '0.65rem 0.5rem', fontSize: '0.65rem', color: '#3B5ED6', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', borderBottom: '2px solid var(--border)' }}>Req→App</th>
+                  <th style={{ padding: '0.65rem 0.5rem', fontSize: '0.65rem', color: '#64748B', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', borderBottom: '2px solid var(--border)' }}>App→Screen</th>
+                  <th style={{ padding: '0.65rem 0.5rem', fontSize: '0.65rem', color: '#D97706', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', borderBottom: '2px solid var(--border)' }}>Screen→R1</th>
+                  <th style={{ padding: '0.65rem 0.5rem', fontSize: '0.65rem', color: '#B45309', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', borderBottom: '2px solid var(--border)' }}>R1→R2</th>
+                  <th style={{ padding: '0.65rem 0.5rem', fontSize: '0.65rem', color: '#B45309', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', borderBottom: '2px solid var(--border)' }}>R2→R3</th>
+                  <th style={{ padding: '0.65rem 0.5rem', fontSize: '0.65rem', color: '#2E8070', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', borderBottom: '2px solid var(--border)' }}>R3→Offer</th>
+                  <th style={{ padding: '0.65rem 0.5rem', fontSize: '0.65rem', color: '#C0392B', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'center', borderBottom: '2px solid var(--border)' }}>Offer→Hire</th>
+                  <th style={{ padding: '0.65rem 0.75rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', textAlign: 'right', borderBottom: '2px solid var(--border)', borderRadius: '0 8px 0 0' }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {timeline
+                  .filter(t => selectedBU === 'All' || t.bu === selectedBU)
+                  .filter(t => searchPos.trim() === '' || t.position.toLowerCase().includes(searchPos.toLowerCase()))
+                  .map((t, idx) => {
+                  const s = t.stages
+                  const tot = Math.max(t.totalDays, 1)
+                  const isEven = idx % 2 === 0
+                  return (
+                    <tr key={`${t.bu}-${t.position}-${idx}`} className="data-row" style={{ background: isEven ? 'transparent' : 'rgba(245,242,236,0.4)', borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '0.75rem 0.75rem' }}>
+                        <span style={{
+                          fontSize: '0.72rem', fontWeight: 700, color: 'var(--navy-800)',
+                          background: 'rgba(15,27,45,0.07)', borderRadius: 6,
+                          padding: '3px 8px', whiteSpace: 'nowrap',
+                        }}>{t.bu}</span>
+                      </td>
+                      <td style={{ padding: '0.75rem 0.75rem' }}>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 500, marginBottom: 5 }}>{t.position}</div>
+                        {/* Mini stacked progress bar */}
+                        <div style={{ display: 'flex', width: '100%', height: 5, borderRadius: 3, overflow: 'hidden', gap: 1 }}>
+                          {[
+                            { val: s.reqToApp, color: '#3B5ED6' },
+                            { val: s.appToScreen, color: '#64748B' },
+                            { val: s.screenToR1, color: '#D97706' },
+                            { val: s.r1ToR2, color: '#B45309' },
+                            { val: s.r2ToR3, color: '#D4A843' },
+                            { val: s.r3ToOffer, color: '#2E8070' },
+                            { val: s.offerToHire, color: '#C0392B' },
+                          ].map((seg, si) => (
+                            <div key={si} style={{ width: `${(seg.val / tot) * 100}%`, background: seg.color, minWidth: seg.val > 0 ? 2 : 0 }} title={`${STAGE_COLORS[si]?.label}: ${seg.val}d`} />
+                          ))}
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.75rem 0.75rem', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--navy-800)' }}>{t.candidateCount || 0}</div>
+                      </td>
+                      {/* Stage day pills */}
+                      {[
+                        { val: s.reqToApp, color: '#3B5ED6', bg: '#EEF2FF' },
+                        { val: s.appToScreen, color: '#64748B', bg: '#F1F5F9' },
+                        { val: s.screenToR1, color: '#D97706', bg: '#FFFBEB' },
+                        { val: s.r1ToR2, color: '#B45309', bg: '#FEF3C7' },
+                        { val: s.r2ToR3, color: '#92400E', bg: '#FDE68A33' },
+                        { val: s.r3ToOffer, color: '#2E8070', bg: '#F0FDF4' },
+                        { val: s.offerToHire, color: '#C0392B', bg: '#FEF2F2' },
+                      ].map((cell, ci) => (
+                        <td key={ci} style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
+                          <span style={{
+                            display: 'inline-block', fontSize: '0.72rem', fontWeight: 700,
+                            color: cell.color, background: cell.bg,
+                            borderRadius: 8, padding: '3px 8px', minWidth: 32,
+                          }}>{cell.val}d</span>
+                        </td>
+                      ))}
+                      <td style={{ padding: '0.75rem 0.75rem', textAlign: 'right' }}>
+                        <span style={{
+                          display: 'inline-block', fontSize: '0.8rem', fontWeight: 800,
+                          color: t.totalDays <= 45 ? 'var(--teal-500)' : t.totalDays <= 60 ? 'var(--amber-600)' : 'var(--brick-500)',
+                          fontFamily: "'Playfair Display', serif",
+                        }}>{t.totalDays}d</span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+
+      {/* ── Rejection & Offer Drop Reasons ── */}
       <div style={{ marginTop: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
         <Panel>
           <PanelTitle title="Top Rejection Reasons" badge="From 'Reason for Rejection' column" />
